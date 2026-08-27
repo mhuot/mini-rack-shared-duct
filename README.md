@@ -261,7 +261,7 @@ The ears come out of Fusion 360 and have to: they are full of tangency and relie
 **Runs anywhere** (`pip install -r requirements.txt`):
 
 - [`shared_duct_params.py`](scripts/shared_duct_params.py) — every number the duct is built from, in one place, standard library only. `check_fits()` refuses a fan that will not fit the duct.
-- [`build_shared_fan_plate_mesh.py`](scripts/build_shared_fan_plate_mesh.py) — the plate, from primitives, straight to a printable STL. **No Fusion licence needed.**
+- [`build_shared_fan_plate_mesh.py`](scripts/build_shared_fan_plate_mesh.py) — the plate, from primitives, straight to a printable STL. **No Fusion licence needed.** `--compare <stl>` checks a Fusion export against it and reports what differs, by location and volume — run it after every Fusion rebuild, because a save that is missing a feature looks perfectly fine.
 - [`build_fan_guard_mesh.py`](scripts/build_fan_guard_mesh.py) — the optional guard.
 - [`check_rear_assembly.py`](scripts/check_rear_assembly.py) — interference, seal, ear-seam and free-area checks.
 - [`build_print_plate.py`](scripts/build_print_plate.py) — the 3MF print plates.

@@ -73,6 +73,16 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
         return collection
 
     def cut_through(sketch, name, depth=params.PLATE_THICKNESS):
+        """Cut every profile on `sketch`, naming the feature `name`.
+
+        The feature's name must differ from its sketch's. Fusion suffixes
+        duplicate timeline names, so a sketch and a feature both called
+        "Tie slots" become "Tie slots" and "Tie slots (1)" -- and which one is
+        suffixed depends on creation order. Deleting by exact name then removes
+        the sketch and leaves an orphaned cut still eating geometry, and the
+        result saves cleanly while being lighter than it should be. Sketches
+        here are prefixed "Sketch: " so no name is even a prefix of another.
+        """
         definition = extrudes.createInput(
             all_profiles(sketch), adsk.fusion.FeatureOperations.CutFeatureOperation
         )
@@ -85,9 +95,12 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
 
     half_width = params.PLATE_WIDTH / 2
 
+    # Named so that no timeline item shares a name with another, and no name
+    # is a prefix of another. See cut_through() for what that is guarding
+    # against.
     # 1. The plate itself, spanning the whole stack
     plate_sketch = root.sketches.add(root.xYConstructionPlane)
-    plate_sketch.name = "Plate"
+    plate_sketch.name = "Sketch: plate"
     plate_sketch.sketchCurves.sketchLines.addTwoPointRectangle(
         point(-half_width, params.PLATE_Y0), point(half_width, params.PLATE_Y1)
     )
@@ -105,7 +118,7 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
 
     # 2. The two duct walls, forward off the front face into the outer rails
     wall_sketch = root.sketches.add(root.xYConstructionPlane)
-    wall_sketch.name = "Duct walls"
+    wall_sketch.name = "Sketch: duct walls"
     for band_y0, band_y1 in params.WALL_BANDS:
         wall_sketch.sketchCurves.sketchLines.addTwoPointRectangle(
             point(-params.WALL_HALF_WIDTH, band_y0),
@@ -122,7 +135,7 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
 
     # 3. The fan opening, the fan's corner holes and the M3 mounting holes
     cut_sketch = root.sketches.add(root.xYConstructionPlane)
-    cut_sketch.name = "Openings and holes"
+    cut_sketch.name = "Sketch: openings and holes"
     circles = cut_sketch.sketchCurves.sketchCircles
     circles.addByCenterRadius(
         point(params.FAN_CENTRE_X, params.FAN_CENTRE_Y),
@@ -141,7 +154,7 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
 
     # 4. Zip-tie slots, straddling the one lead this plate now carries
     tie_sketch = root.sketches.add(root.xYConstructionPlane)
-    tie_sketch.name = "Tie slots"
+    tie_sketch.name = "Sketch: tie slots"
     for slot_x in params.TIE_SLOT_X:
         for slot_y in params.TIE_SLOT_Y:
             tie_sketch.sketchCurves.sketchLines.addTwoPointRectangle(
@@ -160,7 +173,7 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
     rear_plane = root.constructionPlanes.add(plane_input)
     rear_plane.name = "Rear face"
     cbore_sketch = root.sketches.add(rear_plane)
-    cbore_sketch.name = "Head counterbores"
+    cbore_sketch.name = "Sketch: head counterbores"
     for hole_x in (-params.BOSS_X, params.BOSS_X):
         for hole_y in params.boss_rows():
             cbore_sketch.sketchCurves.sketchCircles.addByCenterRadius(

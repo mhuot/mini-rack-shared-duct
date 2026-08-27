@@ -443,11 +443,16 @@ def run(
     )
 
     def pick_appearance(name):  # pylint: disable=too-many-return-statements
-        # A chain of substring tests, one per material. Collapsing it into a
-        # table reads worse: the order matters, because "duct wall" has to be
-        # caught before the acrylic "panel" rule sees the word.
-        if "duct" in name:
-            return orange_print  # a printed duct wall, not the acrylic kind
+        # Specific before general, and the order is load-bearing. "Shared duct
+        # fan" contains "duct", so a duct rule placed first paints the Noctua
+        # in Prusa orange -- which is exactly how upstream's "duct panel" came
+        # out as smoked acrylic and its "fan plate" came out Noctua brown.
+        # Nothing about the render looks broken when this is wrong; it just
+        # quietly shows the wrong material. Hence the count assertion below.
+        if name.endswith("fan"):
+            return noctua
+        if "fan plate" in name or "duct" in name:
+            return orange_print  # printed: the plate and its duct walls
         if "panel" in name:
             return acrylic
         if "foot" in name:
@@ -460,10 +465,35 @@ def run(
             return surface_look
         if name.endswith("rod"):
             return steel
-        if name.endswith("fan"):
-            return noctua
-        return orange_print  # printed parts: ears, fan plates
+        return orange_print  # printed parts: ears
 
+    def audit_appearances(assignments):
+        """Fail if the classifier painted an unexpected number of anything.
+
+        A miscoloured body is invisible as a bug -- the render is still a
+        render. Counting is the only cheap way to notice, so the counts are
+        asserted against what this script actually built.
+        """
+        tally = {}
+        for appearance in assignments.values():
+            tally[appearance] = tally.get(appearance, 0) + 1
+        expected = {
+            noctua: 1,  # one fan, and it must not be the plate or a wall
+            acrylic: 3,  # two sides and the top
+            rubber: 4,  # feet
+            steel: 4 * len(SLOTS),  # rods
+        }
+        for appearance, count in expected.items():
+            actual = tally.get(appearance, 0)
+            if actual != count:
+                raise RuntimeError(
+                    f"appearance '{appearance.name}' went on {actual} bodies, "
+                    f"expected {count} -- a name-matching rule is catching the "
+                    "wrong bodies"
+                )
+        return tally
+
+    assigned = {}
     for name, body in bodies:
         offset = explode_offset(name)
         if offset is not None:
@@ -476,11 +506,16 @@ def run(
         added = root.bRepBodies.add(body)
         added.name = name
         added.appearance = pick_appearance(name)
+        assigned[name] = added.appearance
         if "panel" in name.lower() and "duct" not in name.lower():
             added.opacity = 0.3  # smoked acrylic reads see-through in renders
+
+    tally = audit_appearances(assigned)
 
     app.activeViewport.fit()
     print(
         f"Mockup created: {root.bRepBodies.count} bodies "
         f"in document '{new_doc.name}'"
     )
+    for appearance, count in sorted(tally.items(), key=lambda item: item[0].name):
+        print(f"  {appearance.name:34s} {count} bodies")

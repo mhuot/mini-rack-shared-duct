@@ -65,6 +65,90 @@ a dimension, change it there and nowhere else.
 Fusion API note: all Fusion API lengths are centimeters. The scripts define
 `MM = 0.1` and work in millimeters throughout.
 
+## Fusion viewport rendering, and what it costs to learn twice
+
+Carried over from `mini-rack-laptop-trays`, same Fusion MCP setup. Each of
+these cost a debugging cycle there. None of them announce themselves: the
+failure is a render that looks merely disappointing, or a save that looks fine.
+
+**The camera only applies on assignment.** Mutating `viewport.camera` in place
+does nothing. Read it, set the fields, assign it back — that last line is the
+one that does the work:
+
+```python
+camera = viewport.camera
+camera.eye = ...; camera.target = ...; camera.upVector = ...
+viewport.camera = camera        # this is what applies it
+viewport.refresh(); adsk.doEvents()
+viewport.saveAsImageFile(path, width, height)
+```
+
+**`viewExtents` is a linear value in centimetres, not an area.** The camera is
+orthographic (`cameraType == 0`). Squaring it renders the model as a speck; two
+images came out 99.9% background before anyone noticed. **If a render looks
+blank, check this first.**
+
+**Don't guess the extents, measure them.** Let Fusion fit the largest state
+once with `isFitView = True`, read `viewport.camera.viewExtents` back, and
+reuse that number with `isFitView = False`. Multiply by ~0.74 to fill the
+frame: Fusion fits to the viewport's aspect, not the aspect passed to
+`saveAsImageFile`.
+
+**`isFitView = True` refits every frame**, so any animation pumps in and out as
+the subject grows. Fixed extents from the step above solve it.
+
+**To frame a subset, hide the rest.** Set `body.isLightBulbOn = False` on
+everything else, fit, and restore in a `finally`. Zooming with `viewExtents`
+instead is what produced the blank frames.
+
+**`BoundingBox3D.combine()` returns a bool and mutates in place.** It does not
+return a combined box. Accumulate min/max by hand.
+
+**Fusion suffixes duplicate timeline names.** Naming a sketch and its feature
+the same thing gets you `Tie slots` and `Tie slots (1)`, and which one is
+suffixed depends on creation order. Matching timeline items by exact name once
+deleted only the sketch and left an orphaned cut still removing geometry: the
+body came out 533 mm3 light and the save looked fine. Match by type and name
+prefix — and in this repo, don't create the collision at all.
+`build_shared_fan_plate.py` prefixes every sketch `Sketch: `, so no timeline
+name equals another or is even a prefix of another.
+
+**Verify a rebuild against the mesh, not against the save.**
+`python scripts/build_shared_fan_plate_mesh.py --compare <exported.stl>`
+booleans a Fusion export against the model both scripts are built from and
+reports what differs, by location and volume. Use it after every Fusion rebuild
+of the plate. Note it does *not* compare total volume: tessellation disagreement
+between Fusion and trimesh is worth tens of mm3 on this part's curved faces, and
+a percentage tolerance loose enough to survive that is loose enough to hide a
+lost feature. It reports connected lumps over 5 mm3 instead, which distinguishes
+a missing pocket from rounding.
+
+**The canvas background is a dark gradient and the API cannot change it.**
+`graphicsPreferences` has no background property. Post-process instead:
+estimate the background per row from the outermost columns so the estimate
+follows the gradient, then replace only pixels that are both near that estimate
+*and* connected to the image border. That last condition is what stops it
+eating dark parts of the model. `whiten_renders.py` does this.
+
+**Name-based colour classification bites.** "duct panel" matched a `panel` rule
+and rendered as smoked acrylic; "fan plate" matched a `fan` rule and came out
+Noctua brown. This fork hit it again from the other direction: `Shared duct
+fan` contains "duct", so a duct-first rule painted the Noctua as a printed
+part. Order specific before general, and **assert the group counts after
+classifying** — `audit_appearances()` in `build_rack_mockup.py` and
+`audit_groups()` in `build_web_assets.py`. A miscoloured body is not a visible
+failure; the render still looks like a render.
+
+**glTF `baseColorFactor` is linear.** Convert sRGB to linear or every colour
+washes out. Fusion exports STLs Z-up and glTF wants Y-up, so
+`build_web_assets.py` rotates them. Note that the *local* renderer does not:
+`render_shared_duct.py` builds in the mockup's frame, where y is already the
+rack's vertical axis, so its GLB needs no rotation. Check the bounds rather
+than assuming either way.
+
+**A script cannot run while a modal dialog is open** — `Cannot perform 'script'
+while a command dialog is open`. Handle it rather than retrying blindly.
+
 ## Generated assets
 
 Every image in `docs/images/` and the GLB in `docs/models/` is generated

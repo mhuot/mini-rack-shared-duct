@@ -44,27 +44,58 @@ ROUGHNESS = {"rod": 0.35}
 
 
 def classify(stem: str) -> str:  # pylint: disable=too-many-return-statements
-    """Map an exported body filename to a palette group."""
+    """Map an exported body filename to a palette group.
+
+    Specific before general, and the order is load-bearing. "Shared duct fan"
+    contains "duct", so the duct rule used to claim the Noctua and paint it as
+    a printed part -- the same way "duct panel" once matched the acrylic rule
+    and "fan plate" came out Noctua brown. None of that looks broken in a
+    render; it is just the wrong material. audit_groups() counts them.
+    """
     lower = stem.lower()
+    if "fan_plate" in lower or "fan plate" in lower:
+        return "print"  # the printed plate, not a Noctua
+    if lower.endswith("fan") or "_fan" in lower.rsplit("_", 1)[-1]:
+        return "fan"
     if "duct" in lower:
-        return "print"  # a printed duct panel, not the acrylic kind
+        return "print"  # a printed duct wall, not the acrylic kind
     if "panel" in lower:
         return "panel"
     if "foot" in lower:
         return "foot"
-    if lower.split("_", 1)[-1].startswith("frame"):
+    # Either "frame_..." or "<slot>_frame_...". The original only handled the
+    # second, so a body named plainly "Frame front post" fell through every
+    # rule and came out as a printed part.
+    if lower.startswith("frame") or lower.split("_", 1)[-1].startswith("frame"):
         return "frame"
     if "ref" in lower and "macbook" in lower:
         return "macbook"
     if "ref" in lower and "surface" in lower:
         return "surface"
-    if "fan_plate" in lower:
-        return "print"  # the printed plate, not a Noctua
     if "fan" in lower:
         return "fan"
     if "rod" in lower:
         return "rod"
     return "print"
+
+
+def audit_groups(groups: dict) -> None:
+    """Warn loudly if the classifier produced an implausible split.
+
+    A miscoloured body is not a visible failure -- the GLB still loads and
+    still looks like a rack. Counting is the cheap way to notice. This warns
+    rather than raises, because the parts directory is whatever the user
+    exported and may legitimately be a subset.
+    """
+    for group, limit in (("fan", 1), ("panel", 3), ("foot", 4)):
+        count = groups.get(group, 0)
+        if count > limit:
+            print(
+                f"  WARNING: {count} bodies classified as '{group}', expected "
+                f"at most {limit} -- a name rule is catching the wrong bodies"
+            )
+    if groups.get("fan", 0) == 0 and groups.get("print", 0):
+        print("  WARNING: nothing classified as 'fan' -- did a rule swallow it?")
 
 
 def srgb_to_linear(rgba_255):
@@ -126,6 +157,7 @@ def build_glb(parts_dir: Path) -> None:
         scene.add_geometry(mesh, node_name=stl_path.stem)
     if not counts:
         raise SystemExit(f"no part STLs found in {parts_dir}")
+    audit_groups(counts)
     GLB_PATH.parent.mkdir(parents=True, exist_ok=True)
     scene.export(GLB_PATH)
     print(f"GLB: {GLB_PATH} ({GLB_PATH.stat().st_size / 1e6:.2f} MB); groups: {counts}")
