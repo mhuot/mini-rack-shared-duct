@@ -1,0 +1,12 @@
+# Local (non-Fusion) scripts only. The Fusion scripts run inside Fusion 360
+# against its bundled Python, which this file has nothing to do with.
+#
+# Pinned because regenerating an STL or 3MF on a different trimesh writes the
+# same geometry with different float formatting, which buries a real change in
+# a repo-wide diff. Bump deliberately, and check the mesh actually changed.
+trimesh==5.0.0
+numpy==2.5.2
+scipy==1.18.1
+manifold3d==3.5.2
+Pillow==12.3.0
+matplotlib==3.11.1
