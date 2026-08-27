@@ -41,9 +41,7 @@ opening as a share of the duct:     74.8%
 the opening is the restriction, not the duct
 ```
 
-So **the opening is the bottleneck here**, where upstream's was not — which is why the [inlet chamfer](#the-inlet-chamfer) is worth having.
-
-An earlier version of this README said one 120 mm fan "pulls better against duct static pressure than nine small ones." That was wrong, and worth correcting in place rather than quietly deleting. See [Static pressure](#static-pressure) below.
+So **the opening is the bottleneck here**, where upstream's was not — which is why the [inlet chamfer](#the-inlet-chamfer) is worth having. One 120 mm fan is quieter and needs one lead and one supply, but it is not more nominal airflow than nine NF-A4x20s, and this design does not pretend otherwise. [Static pressure](#static-pressure) is the next section because it is the usual counter-argument, and it does not hold either.
 
 Upstream's other metric — "no point of the duct is more than 31.8 mm from a fan" — does not survive the change and should not be quoted here. It governed a 44 mm duct whose exhaust plane was the fan plate itself, where lateral distance really did set the dead corners. A 194 × 133 plenum equalises static pressure across its own cross-section instead, so what matters is each rack unit's exit area, not how far a corner sits from the fan.
 
@@ -60,18 +58,18 @@ A fan's advertised airflow is its **free-air** figure — what it moves against 
 
 **This is a low-resistance system.** At 45 CFM it asks for 3.84 Pa, or 0.39 mm H₂O, against the 1.0–2.5 mm H₂O a typical 120 mm case fan can produce at peak. The fan runs near the free-delivery end of its curve, which is the regime where a big slow fan does well. There is no dense heatsink here, no filter, no long run of duct — just a short plenum and one large hole.
 
-### Why the static-pressure claim was wrong
+### So why one big fan?
 
-It follows from the table that static pressure cannot be the reason to prefer one big fan, because the duct is not pressure-limited under either option. Comparing the two ways to fill it:
+Not for pressure. It follows from the table that the duct is not pressure-limited under any plausible option, so pressure cannot decide between them. Comparing the two ways to fill it:
 
 | | Swept area | Tip speed | Relative pressure |
 |---|---|---|---|
 | One 120 mm at 1200 rpm | 11,310 mm² | 7.54 m/s | 1.00× |
 | Nine 40 mm at 5000 rpm | 10,751 mm² | 10.21 m/s | **1.83×** |
 
-Swept area is a near tie. Peak static pressure scales roughly with tip speed squared, and the small fans have the *higher* tip speed — 4.2× the rpm is 1.35× the tip speed — so nine 40 mm fans have **more** pressure headroom and more peak flow than one 120 mm fan, not less. The original claim had it exactly backwards, and even if it had been true it would not have mattered in a duct asking for a fraction of what either can deliver.
+Swept area is a near tie. Peak static pressure scales roughly with tip speed squared, and the small fans have the *higher* tip speed — 4.2× the rpm is 1.35× the tip speed — so nine 40 mm fans have **more** pressure headroom and more peak flow than one 120 mm fan, not less. If you want maximum airflow into this duct, the array wins.
 
-**The real case for the big fan is noise and simplicity.** Two rules of thumb, both estimates rather than measurements: broadband fan noise rises with roughly the fifth power of tip speed, worth about +6.6 dB for the array, and nine uncorrelated sources sum to +9.5 dB over one. On the order of **16 dB louder** for the same job — plus nine leads, nine splices and nine things to fail.
+**The case for one big fan is noise and simplicity.** Two rules of thumb, both estimates rather than measurements: broadband fan noise rises with roughly the fifth power of tip speed, worth about +6.6 dB for the array, and nine uncorrelated sources sum to +9.5 dB over one. On the order of **16 dB louder** for the same job — plus nine leads, nine splices and nine things to fail. On a desk, next to the person using the laptops, that is the trade worth making.
 
 Everything in this section is a first-order estimate with textbook loss coefficients, not CFD and not a measurement. It is enough to answer the question it was built for — is this a duct where a big slow fan wins — and not enough to predict a temperature.
 

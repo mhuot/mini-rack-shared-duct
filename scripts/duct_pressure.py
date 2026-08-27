@@ -132,16 +132,16 @@ def main():
     print()
     _noise_estimate()
     print()
-    print("  Which settles it, and not the way the first draft of this claimed.")
     print("  Swept area is a near tie. The 40 mm array spins 4.2x the rpm, which")
     print("  is 1.35x the tip speed, so it has MORE pressure headroom and more")
     print("  peak flow -- not less. But the duct needs neither: it asks for a")
-    print("  fraction of what either can produce.")
+    print("  fraction of what either can produce, so pressure does not decide")
+    print("  between them and neither does swept area.")
     print()
-    print("  So the case for the big fan is noise and one lead, not pressure and")
-    print("  not airflow. Saying it pulls better against static pressure was")
-    print("  simply wrong, and in a low-resistance duct it would not matter even")
-    print("  if it were true.")
+    print("  What is left is noise and the number of things to wire. Those are")
+    print("  the reasons to run one big fan here. Not static pressure, which is")
+    print("  the argument usually reached for and does not apply to a duct this")
+    print("  open.")
 
 
 def _noise_estimate():
