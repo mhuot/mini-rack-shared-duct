@@ -3,18 +3,21 @@
 Run inside Fusion via the MCP execute tool, straight after a build script has
 left its part in the active document. Set NAME to the file stem you want:
 
-    NAME = "rear_fan_plate"     ->  cad/rear_fan_plate.f3d + .step
+    NAME = "shared_fan_plate"   ->  cad/shared_fan_plate.f3d + .step
 
-Only build_fan_plug.py writes its own CAD; every other part is exported with
-this, so the STEP and F3D beside a part stay in step with its STL instead of
-quietly ageing. A stale F3D is worse than a missing one -- it opens fine and
-shows the wrong geometry.
+Every part's CAD is exported with this, so the STEP and F3D beside a part stay
+in step with its STL instead of quietly ageing. A stale F3D is worse than a
+missing one -- it opens fine and shows the wrong geometry.
 """
 
 import adsk.core
 import adsk.fusion
 
-CAD_DIR = "/Users/mhuot/mini-rack/cad"
+# This fork's cad/, not upstream's. The path arrived pointing at
+# /Users/mhuot/mini-rack/cad, which would have quietly written this project's
+# CAD into the other repo -- the export succeeds either way, so nothing about
+# the run would have said so.
+CAD_DIR = "/Users/mhuot/mini-rack-shared-duct/cad"
 NAME = "part"
 
 

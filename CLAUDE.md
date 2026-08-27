@@ -103,17 +103,16 @@ ratio.**
 python scripts/build_shared_fan_plate_mesh.py --compare <exported.stl>
 ```
 
-The skill's technique is to compare BRep volume against the exported mesh and
-treat a gap beyond ~0.1% as real. That threshold is at the noise floor for this
-particular part: the plate is 135,384 mm3 with a chamfer, a Ø114 opening and
-twenty-eight holes, so faceting disagreement alone approaches 0.1%, and the
-533 mm3 that the skill cites as a caught bug would be 0.39% here — detectable,
-but a 144 mm3 loss would not be.
+`--compare` does not threshold on total volume, for the reason the skill now
+records: a lost feature is a fixed volume and a percentage tolerance scales
+with the part, so the 533 mm3 that was loud on a rear ear would be 0.39% here.
+It booleans both directions and reports **connected lumps over 5 mm3 with their
+bounds** instead.
 
-So `--compare` does not threshold on total volume. It booleans both directions
-and reports **connected lumps over 5 mm3 with their bounds**, which separates a
-missing feature (a compact lump) from faceting (a thin shell spread over every
-curved face) by shape rather than by magnitude, and says *where*. Run it after
+That 5 mm3 is calibrated on this part, against real Fusion exports at low,
+medium and high refinement: faceting produced 1,078–2,070 components and the
+largest single fragment was 0.50 mm3 every time, all of them thin arcs around
+the chamfered bore. So 5 mm3 has about 10x headroom. Run `--compare` after
 every Fusion rebuild of the plate.
 
 **`whiten_renders.py`** is this repo's implementation of the background
@@ -143,10 +142,13 @@ project page should show geometry the checks have never seen.
 document. A stale F3D is worse than a missing one, because it opens fine and
 shows the wrong geometry.
 
-**There is no `cad/` entry for the shared fan plate yet**, because nobody has
-run `build_shared_fan_plate.py` inside Fusion. `exports/shared_fan_plate.stl`
-comes from the local mesh builder and is what the checks and print plates use.
-Don't imply the STEP exists.
+`cad/shared_fan_plate.{step,f3d}` come from running
+`build_shared_fan_plate.py` inside Fusion and then `export_active_cad.py`.
+`exports/shared_fan_plate.stl` still comes from the local mesh builder, and
+should stay that way: it is the reproducible one, and the checks and print
+plates are built against it. The two agree — Fusion's BRep is 135,366.2 mm3
+against the mesh's 135,383.7, a 0.013% faceting gap, and a component diff of
+Fusion's STL against the model is clean at every refinement level.
 
 One trap worth knowing before you regenerate them. **The heat-set rear ear
 does not come from `build_rear_ear_v2.py`.** That script builds from the

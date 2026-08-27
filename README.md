@@ -278,7 +278,7 @@ The ears come out of Fusion 360 and have to: they are full of tangency and relie
 
 Fusion API note: all API lengths are centimeters; the scripts define `MM = 0.1` and work in millimeters throughout.
 
-Every printable part also ships as standalone CAD in [`cad/`](cad/) — a STEP and a Fusion archive per part.
+Every printable part also ships as standalone CAD in [`cad/`](cad/) — a STEP and a Fusion archive per part, the plate included. Fusion's BRep and the local mesh agree to 0.013% (135,366.2 mm³ against 135,383.7), and a component-level diff of Fusion's STL against the model is clean at every export refinement.
 
 ### Renders
 
