@@ -1,12 +1,21 @@
-"""Assemble a one-tray print plate as a 3MF for PrusaSlicer.
+"""Assemble the print plates as 3MFs for PrusaSlicer.
 
 Loads the exported STLs, orients each part print-side down, bakes the
-mirrored copies (left/right ears), arranges everything on a 250 x 210 bed,
-and writes a vanilla 3MF that PrusaSlicer opens as separate objects:
+mirrored copies (left/right ears), arranges everything on the bed, and writes
+a vanilla 3MF that PrusaSlicer opens as separate objects:
 
     python scripts/build_print_plate.py            # heat-set rear ears
     python scripts/build_print_plate.py --variant nuttrap
     python scripts/build_print_plate.py --variant selftap
+
+Two plates, and a full rack needs three of the first and one of the second:
+
+- `ears_<variant>`, one rack unit's worth of ears. Print it once per laptop.
+- `shared_fan_plate`, the whole duct in one part. Print it once.
+
+The plate does not fit a Prusa Mini and never will -- it is 222 mm across a
+180 mm bed -- so asking for it on that bed is refused by name rather than
+failing somewhere inside the packer.
 
 Requires: trimesh, numpy (pip install trimesh numpy).
 """
@@ -52,8 +61,9 @@ def mirrored(mesh):
 def flipped(mesh):
     """Turn a part over, print-side down, keeping the winding valid."""
     copy = mesh.copy()
-    copy.apply_transform(trimesh.transformations.rotation_matrix(
-        np.pi, [1.0, 0.0, 0.0]))
+    copy.apply_transform(
+        trimesh.transformations.rotation_matrix(np.pi, [1.0, 0.0, 0.0])
+    )
     if copy.volume < 0:
         copy.invert()
     return copy
@@ -62,56 +72,37 @@ def flipped(mesh):
 def place(mesh, x_center, y_center):
     """Drop the mesh so it sits on z=0 centered at (x_center, y_center)."""
     lo, hi = mesh.bounds
-    mesh.apply_translation([x_center - (lo[0] + hi[0]) / 2,
-                            y_center - (lo[1] + hi[1]) / 2,
-                            -lo[2]])
+    mesh.apply_translation(
+        [x_center - (lo[0] + hi[0]) / 2, y_center - (lo[1] + hi[1]) / 2, -lo[2]]
+    )
     return mesh
 
 
 BEDS = {"coreone": (250.0, 220.0), "mini": (180.0, 180.0)}
 
+# Plates that only exist on a bed big enough for them.
+BED_ONLY = {"shared_fan_plate": ("coreone",)}
+
 
 def build_parts(variant):
-    """Two sets. The duct set is what you reprint when the fan layout
-    changes; the ears are print-once and independent of it."""
+    """Two sets. The ears are per laptop; the plate is one for the rack."""
     front = trimesh.load_mesh(EXPORTS / "front_ear.stl")
     rear = trimesh.load_mesh(EXPORTS / REAR_EAR_FILES[variant])
-    plate = trimesh.load_mesh(EXPORTS / "rear_fan_plate.stl")
-    plug = trimesh.load_mesh(EXPORTS / "fan_plug.stl")
-    panel = trimesh.load_mesh(EXPORTS / "duct_panel.stl")
-    ducted = trimesh.load_mesh(EXPORTS / "ducted_fan_plate.stl")
+    plate = trimesh.load_mesh(EXPORTS / "shared_fan_plate.stl")
 
     return {
-        # The duct used to be one plate. Together the three parts fill the bed
-        # corner to corner, which put a panel corner at (14, 8) -- into the
-        # front-left of the bed, where the first layer has now failed twice.
-        # Split, each plate centres with room on every side and nothing sits
-        # in that corner.
-        "duct_panels": [
-            ("duct_panel_top", panel.copy()),
-            ("duct_panel_bottom", panel.copy()),
-        ],
-        "fan_plate": [
-            # Grooves are cut into the plate's front face. Printed that way up
-            # they cost 9% of the first layer and turn into a 2.2 mm bridge, so
-            # print it over: full first layer, and the groove that has to seal
-            # comes out as an open pocket instead.
-            ("rear_fan_plate", flipped(plate)),
-        ],
-        # The one-piece alternative: plate and duct walls in a single part.
-        # Printed plate-down so the first layer is the full solid rectangle;
-        # the walls then rise 72 mm as two 2.2 mm fins, which is the cost of
-        # integrating them and the reason the modular duct exists.
-        "ducted_fan_plate": [
-            ("ducted_fan_plate", flipped(ducted)),
+        # Printed plate-down, so the first layer is the full solid rectangle
+        # and the duct walls rise 72 mm behind it as two 2.2 mm fins. That is
+        # the cost of integrating them, and it is why this is a long print for
+        # one part rather than a quick one for three.
+        "shared_fan_plate": [
+            ("shared_fan_plate", flipped(plate)),
         ],
         f"ears_{variant}": [
             ("rear_ear_R", rear.copy()),
             ("rear_ear_L", mirrored(rear)),
             ("front_ear_R", front.copy()),
             ("front_ear_L", mirrored(front)),
-            ("fan_plug_1", plug.copy()),
-            ("fan_plug_2", plug.copy()),
         ],
     }
 
@@ -128,15 +119,16 @@ def arrange(parts, bed, margin=8.0, gap=6.0):
         if width > bed_w - 2 * margin or depth > bed_h - 2 * margin:
             raise SystemExit(
                 f"{name} is {width:.0f} x {depth:.0f} mm and will not fit "
-                f"a {bed_w:.0f} x {bed_h:.0f} bed at all")
+                f"a {bed_w:.0f} x {bed_h:.0f} bed at all"
+            )
         if x + width > bed_w - margin:
             x = margin
             y += row_depth + gap
             row_depth = 0.0
         if y + depth > bed_h - margin:
             raise SystemExit(
-                f"ran out of bed placing {name} on "
-                f"{bed_w:.0f} x {bed_h:.0f}")
+                f"ran out of bed placing {name} on " f"{bed_w:.0f} x {bed_h:.0f}"
+            )
         place(mesh, x + width / 2, y + depth / 2)
         x += width + gap
         row_depth = max(row_depth, depth)
@@ -155,28 +147,31 @@ def arrange(parts, bed, margin=8.0, gap=6.0):
         mesh.apply_translation([shift_x, shift_y, 0.0])
     return parts
 
+
 def write_3mf(parts, out_path):
     objects_xml = []
     items_xml = []
     for index, (name, mesh) in enumerate(parts, start=1):
         vertices = "".join(
-            '<vertex x="%.4f" y="%.4f" z="%.4f"/>' % tuple(v)
-            for v in mesh.vertices)
+            '<vertex x="%.4f" y="%.4f" z="%.4f"/>' % tuple(v) for v in mesh.vertices
+        )
         triangles = "".join(
-            '<triangle v1="%d" v2="%d" v3="%d"/>' % tuple(f)
-            for f in mesh.faces)
+            '<triangle v1="%d" v2="%d" v3="%d"/>' % tuple(f) for f in mesh.faces
+        )
         objects_xml.append(
             '<object id="%d" name="%s" type="model"><mesh>'
-            '<vertices>%s</vertices><triangles>%s</triangles>'
-            '</mesh></object>' % (index, name, vertices, triangles))
+            "<vertices>%s</vertices><triangles>%s</triangles>"
+            "</mesh></object>" % (index, name, vertices, triangles)
+        )
         items_xml.append('<item objectid="%d"/>' % index)
 
     model = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<model unit="millimeter" xml:lang="en-US" '
         'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">'
-        '<resources>%s</resources><build>%s</build></model>'
-        % ("".join(objects_xml), "".join(items_xml)))
+        "<resources>%s</resources><build>%s</build></model>"
+        % ("".join(objects_xml), "".join(items_xml))
+    )
 
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", CONTENT_TYPES)
@@ -186,12 +181,21 @@ def write_3mf(parts, out_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--variant", choices=sorted(REAR_EAR_FILES),
-                        default="heatset", help="rear ear variant to plate")
-    parser.add_argument("--bed", choices=sorted(BEDS), default="coreone",
-                        help="target printer bed")
-    parser.add_argument("--set", dest="which", default=None,
-                        help="only emit this set, e.g. ears_heatset")
+    parser.add_argument(
+        "--variant",
+        choices=sorted(REAR_EAR_FILES),
+        default="heatset",
+        help="rear ear variant to plate",
+    )
+    parser.add_argument(
+        "--bed", choices=sorted(BEDS), default="coreone", help="target printer bed"
+    )
+    parser.add_argument(
+        "--set",
+        dest="which",
+        default=None,
+        help="only emit this set, e.g. ears_heatset",
+    )
     args = parser.parse_args()
     bed = BEDS[args.bed]
     suffix = "" if args.bed == "coreone" else "_" + args.bed
@@ -199,25 +203,36 @@ def main():
     for plate_name, parts in build_parts(args.variant).items():
         if args.which and plate_name != args.which:
             continue
-        print(f"[{plate_name} on {args.bed} "
-              f"{bed[0]:.0f}x{bed[1]:.0f}]")
+        allowed = BED_ONLY.get(plate_name)
+        if allowed and args.bed not in allowed:
+            print(
+                f"[{plate_name}] skipped: needs a "
+                f"{' or '.join(allowed)} bed, not {args.bed}\n"
+            )
+            continue
+        print(f"[{plate_name} on {args.bed} " f"{bed[0]:.0f}x{bed[1]:.0f}]")
         parts = arrange(parts, bed)
         boxes = []
         for name, mesh in parts:
             assert mesh.volume > 0, f"{name} has inverted winding"
             lo, hi = mesh.bounds
             boxes.append((name, lo, hi))
-            print(f"  {name:20s} {hi[0]-lo[0]:6.1f} x {hi[1]-lo[1]:5.1f} x "
-                  f"{hi[2]-lo[2]:5.1f} at x {lo[0]:.0f}..{hi[0]:.0f} "
-                  f"y {lo[1]:.0f}..{hi[1]:.0f}")
+            print(
+                f"  {name:20s} {hi[0]-lo[0]:6.1f} x {hi[1]-lo[1]:5.1f} x "
+                f"{hi[2]-lo[2]:5.1f} at x {lo[0]:.0f}..{hi[0]:.0f} "
+                f"y {lo[1]:.0f}..{hi[1]:.0f}"
+            )
         for i, (n1, lo1, hi1) in enumerate(boxes):
-            for n2, lo2, hi2 in boxes[i + 1:]:
-                if (lo1[0] < hi2[0] and lo2[0] < hi1[0]
-                        and lo1[1] < hi2[1] and lo2[1] < hi1[1]):
+            for n2, lo2, hi2 in boxes[i + 1 :]:
+                if (
+                    lo1[0] < hi2[0]
+                    and lo2[0] < hi1[0]
+                    and lo1[1] < hi2[1]
+                    and lo2[1] < hi1[1]
+                ):
                     raise SystemExit(f"{n1} overlaps {n2} on plate {plate_name}")
         for name, lo, hi in boxes:
-            if (lo[0] < 0 or lo[1] < 0
-                    or hi[0] > bed[0] or hi[1] > bed[1]):
+            if lo[0] < 0 or lo[1] < 0 or hi[0] > bed[0] or hi[1] > bed[1]:
                 raise SystemExit(f"{name} runs off the {args.bed} bed")
 
         out_path = EXPORTS / f"print_plate_{plate_name}{suffix}.3mf"
