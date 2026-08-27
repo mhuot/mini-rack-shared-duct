@@ -1,0 +1,14 @@
+# Geometry code names a lot of coordinates, and naming them is the point --
+# see the "descriptive names" rule this project is written to. A function that
+# places four holes and two slots legitimately holds more locals than pylint's
+# default fifteen, and collapsing them into arrays to satisfy the check makes
+# the geometry harder to read, not easier.
+[DESIGN]
+max-locals = 24
+max-args = 8
+max-positional-arguments = 8
+
+[MESSAGES CONTROL]
+# The scripts are run as files from the repo root with scripts/ on the path,
+# not installed as a package, so pylint cannot resolve the sibling imports.
+disable = import-error
