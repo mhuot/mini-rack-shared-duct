@@ -48,7 +48,8 @@ This matters before you offer to regenerate anything:
   the Fusion documents open. You cannot run these; say so rather than guessing
   at their output.
 - **Locally** — `build_shared_fan_plate_mesh.py`, `build_fan_guard_mesh.py`,
-  `build_print_plate.py`, `check_rear_assembly.py`, `render_shared_duct.py`,
+  `build_print_plate.py`, `check_rear_assembly.py`, `check_render.py`,
+  `render_shared_duct.py`,
   `build_depth_diagram.py`, `build_wiring_diagram.py`, `whiten_renders.py`,
   `build_web_assets.py`. Dependencies are pinned in `requirements.txt` and go
   in `.venv/`, which is gitignored.
@@ -70,6 +71,12 @@ Every image in `docs/images/` and the GLB in `docs/models/` is generated
 locally, from the exported meshes, by `render_shared_duct.py`,
 `build_depth_diagram.py` and `build_wiring_diagram.py`. All three bake text
 into the image, so a terminology or dimension change means regenerating them.
+
+Run `check_render.py` after touching `render_shared_duct.py`. Renders fail
+quietly -- a wrong one still looks like a rack -- and that script is the only
+thing standing between a geometry mistake and a published picture of it. When
+you add a view, give its caption a direction the checker knows, and when you
+add a part, update `EXPECTED_COUNTS`.
 
 Upstream's photorealistic Fusion renders were deleted rather than kept. Every
 one of them showed three 40 mm fans per tray, which is a different product, and

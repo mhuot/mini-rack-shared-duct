@@ -14,9 +14,16 @@ CYLINDER_SECTIONS = 128
 
 
 def box(x_range, y_range, z_range):
-    """An axis-aligned box from three (low, high) pairs."""
-    low = np.array([x_range[0], y_range[0], z_range[0]], dtype=float)
-    high = np.array([x_range[1], y_range[1], z_range[1]], dtype=float)
+    """An axis-aligned box from three pairs, in either order.
+
+    The pairs are sorted rather than assumed low-to-high. Mirrored geometry is
+    written as `side * INNER, side * OUTER`, which is the right way to say it
+    and comes out reversed for the left-hand side. Trusting the caller's order
+    there produces a box with negative extents: it still renders, and then
+    fails a boolean several steps later with nothing pointing back here.
+    """
+    bounds = np.array([sorted(x_range), sorted(y_range), sorted(z_range)], dtype=float)
+    low, high = bounds[:, 0], bounds[:, 1]
     mesh = trimesh.creation.box(extents=high - low)
     mesh.apply_translation((low + high) / 2)
     return mesh

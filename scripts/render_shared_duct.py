@@ -32,6 +32,7 @@ from matplotlib.collections import PolyCollection  # noqa: E402
 
 import shared_duct_params as params  # noqa: E402
 from mesh_helpers import box as box_mesh  # noqa: E402
+from mesh_helpers import cylinder  # noqa: E402
 from mesh_helpers import mirrored_x  # noqa: E402
 
 EXPORTS = Path("exports")
@@ -49,13 +50,39 @@ ROD_DIA = 8.0
 ROD_Z = (-2.0, 241.0)
 
 # sRGB, matching build_web_assets.py so the two sets of renders agree.
+# RGBA. The acrylic is the only thing that is not opaque, and it has to be
+# drawn rather than omitted: the closed sides and top are why the front of the
+# rack is the only intake, so a render without them shows a duct that would
+# not work.
 COLOURS = {
-    "print": (247 / 255, 84 / 255, 3 / 255),
-    "rod": (215 / 255, 215 / 255, 220 / 255),
-    "macbook": (45 / 255, 45 / 255, 48 / 255),
-    "surface": (28 / 255, 28 / 255, 30 / 255),
-    "fan": (94 / 255, 61 / 255, 48 / 255),
+    "print": (247 / 255, 84 / 255, 3 / 255, 1.0),
+    "rod": (215 / 255, 215 / 255, 220 / 255, 1.0),
+    "macbook": (45 / 255, 45 / 255, 48 / 255, 1.0),
+    "surface": (28 / 255, 28 / 255, 30 / 255, 1.0),
+    "fan": (94 / 255, 61 / 255, 48 / 255, 1.0),
+    "frame": (196 / 255, 199 / 255, 204 / 255, 1.0),
+    "foot": (25 / 255, 25 / 255, 25 / 255, 1.0),
+    "acrylic": (40 / 255, 40 / 255, 46 / 255, 0.26),
 }
+
+# The cabinet, in the same frame as everything else: a GeeekPi-style 4U with
+# corner extrusions, open front and rear frames, closed acrylic sides and top.
+# Numbers match build_rack_mockup.py, which is the Fusion version of this.
+RACK_U = 4
+POST_X_INNER = 110.5
+POST_X_OUTER = 127.0
+FRAME_Y0 = -12.0
+FRAME_Y1 = RACK_U * params.RACK_UNIT + 12.0
+FRONT_FRAME_Z = (0.0, 20.0)
+REAR_FRAME_Z = (180.0, 200.0)
+RAIL_HOLE_SPAN = 236.525
+HOLE_ROWS_PER_UNIT = (6.35, 22.225, 38.1)
+HOLE_DIA = 5.0
+ACRYLIC_X = (125.0, 127.0)
+TOP_PANEL_THICKNESS = 3.0
+FOOT_DIA = 24.0
+FOOT_HEIGHT = 8.0
+FRONT_EAR_Z = -2.0  # its 2 mm face plate sits on the front of the rail
 
 LAPTOPS = {
     "macbook": {"width": 221.2, "length": 312.6, "thickness": 15.5},
@@ -65,24 +92,131 @@ LAPTOPS = {
 # here so the render shows the real thing rather than three identical blocks.
 STACK = ("macbook", "surface", "macbook")
 
+# The four views, at module scope so check_render.py asserts against the same
+# tuple the renders are drawn from rather than a copy that can fall out of step.
+VIEWS = (
+    (146.0, 20.0, "From behind: one duct, one fan, three laptops"),
+    (-34.0, 18.0, "From the front: three laptops in a 4U cabinet"),
+    (-90.0, 0.0, "From the side: 101 mm behind the rear rack rail"),
+    (0.0, 0.0, "Head on: the front opening is the only intake"),
+)
+
 LIGHT_DIRECTION = np.array([0.35, 0.6, -0.72])
 LIGHT_DIRECTION = LIGHT_DIRECTION / np.linalg.norm(LIGHT_DIRECTION)
 
 
-def assemble():
-    """Every part of the rear assembly, placed in the rack frame."""
+def build_cabinet():
+    """The rack itself: posts, rails, acrylic sides and top, feet.
+
+    Upstream drew this in Fusion and it only ever appeared in Fusion renders.
+    Rebuilt here from boxes because a render of the rear assembly alone is not
+    a render of this project -- half of what makes the duct work is the closed
+    cabinet around it, and the parts are boxes anyway.
+    """
     parts = []
 
-    ear = trimesh.load_mesh(EXPORTS / "rear_ear_v2.stl")
+    # Corner posts, full depth, with the rail hole strip drilled through.
+    for side in (-1, 1):
+        for z_range in (FRONT_FRAME_Z, REAR_FRAME_Z):
+            post = box_mesh(
+                (side * POST_X_INNER, side * POST_X_OUTER),
+                (FRAME_Y0, FRAME_Y1),
+                z_range,
+            )
+            holes = [
+                cylinder(
+                    side * RAIL_HOLE_SPAN / 2,
+                    unit_index * params.RACK_UNIT + row,
+                    HOLE_DIA,
+                    (z_range[0] - 1, z_range[1] + 1),
+                    sections=16,
+                )
+                for unit_index in range(RACK_U)
+                for row in HOLE_ROWS_PER_UNIT
+            ]
+            post = trimesh.boolean.difference([post, *holes], engine="manifold")
+            parts.append((post, "frame"))
+
+    # Open frames top and bottom, front and rear, plus the side rails joining
+    # them. This is what the real cabinet is: extrusions and flat frames.
+    for y_range in ((FRAME_Y0, 0.0), (RACK_U * params.RACK_UNIT, FRAME_Y1)):
+        for z_range in (FRONT_FRAME_Z, REAR_FRAME_Z):
+            parts.append(
+                (
+                    box_mesh((-POST_X_INNER, POST_X_INNER), y_range, z_range),
+                    "frame",
+                )
+            )
+        for side in (-1, 1):
+            parts.append(
+                (
+                    box_mesh(
+                        (side * POST_X_INNER, side * POST_X_OUTER),
+                        y_range,
+                        (FRONT_FRAME_Z[1], REAR_FRAME_Z[0]),
+                    ),
+                    "frame",
+                )
+            )
+
+    # Smoked acrylic sides and top. These are the reason the front opening is
+    # the only intake.
+    for side in (-1, 1):
+        parts.append(
+            (
+                box_mesh(
+                    (side * ACRYLIC_X[0], side * ACRYLIC_X[1]),
+                    (0.0, RACK_U * params.RACK_UNIT),
+                    (FRONT_FRAME_Z[1], REAR_FRAME_Z[0]),
+                ),
+                "acrylic",
+            )
+        )
+    parts.append(
+        (
+            box_mesh(
+                (-POST_X_INNER, POST_X_INNER),
+                (
+                    RACK_U * params.RACK_UNIT,
+                    RACK_U * params.RACK_UNIT + TOP_PANEL_THICKNESS,
+                ),
+                (FRONT_FRAME_Z[1], REAR_FRAME_Z[0]),
+            ),
+            "acrylic",
+        )
+    )
+
+    # Feet run along y, under the bottom frame. Built as z-axis cylinders and
+    # tipped upright, because that is the only axis the helper makes.
+    upright = trimesh.transformations.rotation_matrix(math.pi / 2, [1.0, 0.0, 0.0])
+    for side in (-1, 1):
+        for foot_z in (10.0, 190.0):
+            foot = cylinder(
+                0.0, 0.0, FOOT_DIA, (-FOOT_HEIGHT / 2, FOOT_HEIGHT / 2), sections=24
+            )
+            foot.apply_transform(upright)
+            foot.apply_translation([side * 117.0, FRAME_Y0 - FOOT_HEIGHT / 2, foot_z])
+            parts.append((foot, "foot"))
+
+    return parts
+
+
+def assemble(with_cabinet=True):
+    """Every part of the rack, placed."""
+    parts = list(build_cabinet()) if with_cabinet else []
+
+    rear_ear = trimesh.load_mesh(EXPORTS / "rear_ear_v2.stl")
+    front_ear = trimesh.load_mesh(EXPORTS / "front_ear.stl")
     for unit_index in range(params.RACK_UNITS):
         unit_y = unit_index * params.RACK_UNIT
-        for side_mesh, side_x in (
-            (ear, params.EAR_OFFSET_X),
-            (mirrored_x(ear), -params.EAR_OFFSET_X),
-        ):
-            placed = side_mesh.copy()
-            placed.apply_translation([side_x, unit_y, REAR_RAIL_Z])
-            parts.append((placed, "print"))
+        for source, place_z in ((rear_ear, REAR_RAIL_Z), (front_ear, FRONT_EAR_Z)):
+            for side_mesh, side_x in (
+                (source, params.EAR_OFFSET_X),
+                (mirrored_x(source), -params.EAR_OFFSET_X),
+            ):
+                placed = side_mesh.copy()
+                placed.apply_translation([side_x, unit_y, place_z])
+                parts.append((placed, "print"))
 
     plate = trimesh.load_mesh(EXPORTS / "shared_fan_plate.stl")
     plate.apply_translation([0.0, 0.0, REAR_RAIL_Z + params.EAR_DEPTH])
@@ -97,11 +231,12 @@ def assemble():
         (params.FAN_CENTRE_Y - half_frame, params.FAN_CENTRE_Y + half_frame),
         (fan_front_z, fan_front_z + params.FAN_DEPTH),
     )
-    throat = trimesh.creation.cylinder(
-        radius=params.FAN_OPENING_DIA / 2, height=params.FAN_DEPTH + 2, sections=96
-    )
-    throat.apply_translation(
-        [params.FAN_CENTRE_X, params.FAN_CENTRE_Y, fan_front_z + params.FAN_DEPTH / 2]
+    throat = cylinder(
+        params.FAN_CENTRE_X,
+        params.FAN_CENTRE_Y,
+        params.FAN_OPENING_DIA,
+        (fan_front_z - 1, fan_front_z + params.FAN_DEPTH + 1),
+        sections=96,
     )
     parts.append(
         (trimesh.boolean.difference([frame, throat], engine="manifold"), "fan")
@@ -123,20 +258,23 @@ def assemble():
                 laptop_name,
             )
         )
+        # Along z, front to back. The helper already makes z-axis cylinders,
+        # so there is nothing to rotate -- an earlier version rotated them onto
+        # the y axis and drew four vertical posts per rack unit instead.
         for rod_y in ROD_ROWS_PER_UNIT:
             for rod_x in (-params.BOSS_X, params.BOSS_X):
-                rod = trimesh.creation.cylinder(
-                    radius=ROD_DIA / 2, height=ROD_Z[1] - ROD_Z[0], sections=24
-                )
-                rod.apply_transform(
-                    trimesh.transformations.rotation_matrix(
-                        math.pi / 2, [1.0, 0.0, 0.0]
+                parts.append(
+                    (
+                        cylinder(
+                            rod_x,
+                            unit_y + rod_y,
+                            ROD_DIA,
+                            (ROD_Z[0], ROD_Z[1]),
+                            sections=24,
+                        ),
+                        "rod",
                     )
                 )
-                rod.apply_translation(
-                    [rod_x, unit_y + rod_y, (ROD_Z[0] + ROD_Z[1]) / 2]
-                )
-                parts.append((rod, "rod"))
 
     return parts
 
@@ -160,14 +298,15 @@ def write_glb(parts, out_path):
     """
     scene = trimesh.Scene()
     for index, (mesh, colour_name) in enumerate(parts):
+        *rgb, alpha = COLOURS[colour_name]
         coloured = mesh.copy()
-        coloured.visual = trimesh.visual.TextureVisuals(
-            material=trimesh.visual.material.PBRMaterial(
-                baseColorFactor=np.append(srgb_to_linear(COLOURS[colour_name]), 1.0),
-                metallicFactor=0.6 if colour_name == "rod" else 0.0,
-                roughnessFactor=0.35 if colour_name == "rod" else 0.7,
-            )
+        material = trimesh.visual.material.PBRMaterial(
+            baseColorFactor=np.append(srgb_to_linear(rgb), alpha),
+            metallicFactor=0.6 if colour_name in ("rod", "frame") else 0.0,
+            roughnessFactor=0.35 if colour_name == "rod" else 0.7,
+            alphaMode="BLEND" if alpha < 1.0 else "OPAQUE",
         )
+        coloured.visual = trimesh.visual.TextureVisuals(material=material)
         scene.add_geometry(coloured, node_name=f"{colour_name}_{index}")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -176,7 +315,14 @@ def write_glb(parts, out_path):
 
 
 def camera(azimuth_deg, elevation_deg):
-    """Orthographic basis: right and up in the image, plus the view direction."""
+    """Orthographic basis: right and up in the image, plus the view direction.
+
+    `forward` points the way the camera looks. z increases toward the back of
+    the rack, so a camera looking at the front of the rack has forward.z > 0
+    and one looking at the rear has forward.z < 0. That is the opposite of what
+    reads naturally when writing the angles, and the reason every view here was
+    once labelled back to front. check_render.py asserts it now.
+    """
     azimuth = math.radians(azimuth_deg)
     elevation = math.radians(elevation_deg)
     forward = np.array(
@@ -209,8 +355,10 @@ def draw(axes, parts, azimuth_deg, elevation_deg, title):
         )
         base = np.array(COLOURS[colour_name])
         shade = 0.32 + 0.68 * np.clip(normals @ LIGHT_DIRECTION, 0.0, 1.0)
+        shaded = np.tile(base, (len(normals), 1))
+        shaded[:, :3] = np.clip(shaded[:, :3] * shade[:, None], 0.0, 1.0)
         polygons.append(projected)
-        facecolours.append(np.clip(base * shade[:, None], 0.0, 1.0))
+        facecolours.append(shaded)
 
     projected = np.concatenate(polygons)
     facecolours = np.concatenate(facecolours)
@@ -486,15 +634,9 @@ def main():
 
     parts = assemble()
     print(f"wrote {write_glb(parts, GLB_PATH)}")
-    views = (
-        (-38.0, 22.0, "From behind: one duct, one fan, three laptops"),
-        (18.0, 14.0, "From the front: the plenum all three share"),
-        (-90.0, 0.0, "From the side: 101 mm behind the rear rack rail"),
-        (180.0, 0.0, "Head on, from the front of the rack"),
-    )
 
     figure, axes_grid = plt.subplots(2, 2, figsize=(15, 11), facecolor="white")
-    for axes, (azimuth, elevation, title) in zip(axes_grid.ravel(), views):
+    for axes, (azimuth, elevation, title) in zip(axes_grid.ravel(), VIEWS):
         draw(axes, parts, azimuth, elevation, title)
     figure.suptitle(
         f"Shared duct: {params.RACK_UNITS}U plenum, one {params.FAN_SIZE} mm "

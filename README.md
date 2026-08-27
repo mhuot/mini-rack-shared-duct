@@ -84,6 +84,39 @@ Six ears stacked three high only seal if they actually touch:
 
 The model butts them at exactly 44.45 mm. A real rack's rail holes are not perfect, and 0.2 mm of accumulated error opens the duct to ambient along the seam. It is not a catastrophe — it is a slot, not a hole, and the fan will still pull through the plenum — but if it whistles, a strip of foam tape down each seam is the fix. Check the seams before you blame the fan.
 
+### Checking the renders
+
+A render is the easiest thing in this repo to get wrong, because a wrong one
+still looks like something. Two got published before anyone noticed: the rods
+were rotated onto the vertical axis, so every image showed four short posts per
+rack unit instead of four 243 mm rods running front to back; and the camera
+azimuths were inverted, so the view captioned "from the front" was looking at
+the back of the rack.
+
+Neither would have failed a test that only asked whether the script finished.
+So `python scripts/check_render.py` asserts the things the renders claim:
+
+- every part is present, once, and has positive volume — a silently dropped
+  part shows up as a count
+- rods are 243 mm **along z**, Ø8, on the rod lines. This is the check that
+  catches a rotated axis
+- laptops nose out the front by 47.6 mm and 36.0 mm, stop at the ear's back
+  plate, and fit inside the cabinet
+- the cabinet is 4U and the feet hang below the frame, on the right axis
+- the plate's rear face and the fan's back are where the depth diagram says,
+  so the 101 mm in this README stays true
+- **each view's caption matches where the camera actually points.** A view that
+  says "from the front" must have a view direction with positive z
+
+The last one is the interesting half. A caption is a claim, and this is the
+only thing in the repo that checks a claim made in words against geometry.
+
+Both original bugs were re-introduced deliberately to confirm the check fails
+on them, which caught a third bug — in the checker itself. Two of its three
+view rules matched with `startswith("behind")` against a caption reading
+"From behind: ...", so they never fired and the suite looked green regardless.
+A check that cannot fail is worse than no check, because it is also a claim.
+
 ## Compatibility
 
 Designed around a rack with 236.525 mm rail-hole span and 200 mm rail-to-rail depth ([GeeekPi 4U 10-inch cabinet / DeskPi RackMate T0](https://www.amazon.com/dp/B0DPGZPTPP); see the [mini-rack project](https://mini-rack.jeffgeerling.com/) for the ecosystem). The duct is 3U, so a 4U cabinet leaves one unit spare.
@@ -186,6 +219,7 @@ The ears come out of Fusion 360 and have to: they are full of tangency and relie
 - [`check_rear_assembly.py`](scripts/check_rear_assembly.py) — interference, seal, ear-seam and free-area checks.
 - [`build_print_plate.py`](scripts/build_print_plate.py) — the 3MF print plates.
 - [`render_shared_duct.py`](scripts/render_shared_duct.py) — the renders and the GLB on this page, drawn from the same meshes the checks run against. A painter's-algorithm renderer in about eighty lines; no GL context, no display.
+- [`check_render.py`](scripts/check_render.py) — asserts that the rack in the renders is the rack in the design. See [Checking the renders](#checking-the-renders).
 - [`build_depth_diagram.py`](scripts/build_depth_diagram.py), [`build_wiring_diagram.py`](scripts/build_wiring_diagram.py) — the two diagrams.
 - [`check_terminology.py`](scripts/check_terminology.py) — every part has one name; this fails if a retired one creeps back in.
 

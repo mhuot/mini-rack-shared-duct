@@ -216,6 +216,12 @@
   <p><a class="cta" href="https://github.com/mhuot/mini-rack-shared-duct">Get the files on GitHub</a></p>
   <p>The project this came from is still there and still the right answer for one or two laptops: <a href="https://github.com/mhuot/mini-rack-laptop-trays">mini-rack-laptop-trays</a>.</p>
 
+  <h2>Making sure the picture is true</h2>
+  <p>A render is the easiest thing in a project like this to get wrong, because a wrong one still looks like a rack. Two of them went out before I caught it. The rods were being built along one axis and then rotated onto another, so every picture showed four short vertical posts in each rack unit instead of four 243mm rods running front to back. And the camera angles were inverted, so the view captioned "from the front" was looking at the back.</p>
+  <p>Neither of those would have failed a test that only asked whether the script finished. So there is a checker now that asserts what the renders claim. Every part present and solid. Rods 243mm along the depth axis, on the rod lines, because that is the one that catches a rotated part. Laptops nosing out the front by the right amount and fitting inside the cabinet. The plate and fan where the 101mm figure says they are.</p>
+  <p>And the one I like: each view's caption has to match where the camera actually points. A view that says "from the front" must be looking at the front. It is the only thing in the repo that checks a sentence against geometry.</p>
+  <p>Then I put both original bugs back deliberately, to make sure it actually failed on them. That caught a third bug, in the checker itself: two of its three view rules were matching the wrong way and had never once run. A check that cannot fail is worse than no check, because it is also a claim.</p>
+
   <h2>Still untested</h2>
   <p>The geometry is checked. The airflow is not. Nothing here has been in front of a thermometer yet, and the one number I would most like to have, whether one 120mm fan actually beats nine 40mm ones in this particular box, is exactly the number a spreadsheet cannot tell me. That will be its own evening.</p>
 </main>
