@@ -25,6 +25,7 @@ import math
 import sys
 
 import numpy as np
+import trimesh
 
 import render_shared_duct as render
 import shared_duct_params as params
@@ -44,6 +45,21 @@ EXPECTED_COUNTS = {
 
 # Every view's caption claims a direction. z grows toward the back of the rack,
 # so a camera looking at the front has forward.z > 0.
+# Pairs of materials that must never share space, and how much overlap is a
+# modelling artifact rather than a collision. Coincident faces -- a laptop
+# resting exactly on the seat plane the ear's relief is cut to -- produce
+# films a hundredth of a millimetre thick, and calling those collisions would
+# mean the check cried wolf and got ignored. Anything above the threshold is a
+# part passing through another part.
+SLIVER_LIMIT = 25.0  # mm3
+FORBIDDEN_PAIRS = (
+    ("laptop", "frame", "a laptop cannot pass through the rack's rails"),
+    ("laptop", "acrylic", "a laptop cannot pass through the cabinet's side"),
+    ("print", "frame", "a printed part cannot occupy the rack's rails"),
+    ("print", "acrylic", "a printed part cannot pass through the cabinet's side"),
+    ("rod", "frame", "a rod cannot pass through the rack's rails"),
+)
+
 VIEW_EXPECTATIONS = (
     ("behind", -1),
     ("front", +1),
@@ -130,6 +146,62 @@ def check_rods(parts, failures):
         seen == expected_positions,
         f"rods are not on the rod lines: {sorted(seen - expected_positions)} "
         f"unexpected, {sorted(expected_positions - seen)} missing",
+    )
+
+
+def _by_material(parts):
+    """Group parts by material, with the two laptop colours merged."""
+    groups = {}
+    for index, (mesh, colour) in enumerate(parts):
+        key = "laptop" if colour in render.LAPTOPS else colour
+        groups.setdefault(key, []).append((f"{colour}[{index}]", mesh))
+    return groups
+
+
+def check_interference(parts, failures):
+    """No part passes through another part.
+
+    This is the check that catches a render being physically impossible rather
+    than merely ugly. It found that the cabinet opening was modelled 0.2 mm
+    narrower than the MacBook Pro 14 that has to slide through it -- an error
+    inherited from upstream, invisible in every render either project has
+    published, and obvious the moment anything actually intersected the two.
+    """
+    groups = _by_material(parts)
+    for left, right, why in FORBIDDEN_PAIRS:
+        for name_a, mesh_a in groups.get(left, []):
+            for name_b, mesh_b in groups.get(right, []):
+                low_a, high_a = mesh_a.bounds
+                low_b, high_b = mesh_b.bounds
+                if np.any(high_a < low_b) or np.any(high_b < low_a):
+                    continue
+                overlap = trimesh.boolean.intersection(
+                    [mesh_a, mesh_b], engine="manifold"
+                )
+                volume = 0.0 if overlap is None or overlap.is_empty else overlap.volume
+                failures.check(
+                    volume <= SLIVER_LIMIT,
+                    f"{name_a} passes through {name_b} " f"({volume:.1f} mm3) -- {why}",
+                )
+
+
+def check_clearances(failures):
+    """Every laptop fits through the opening it has to slide through.
+
+    Stated as a clearance rather than left implicit in an intersection test,
+    because the useful thing to know when it fails is by how much.
+    """
+    for name, spec in render.LAPTOPS.items():
+        clearance = 2 * render.POST_X_INNER - spec["width"]
+        failures.check(
+            clearance > 0,
+            f"{name} is {spec['width']:.1f} mm wide and the rails are "
+            f"{2 * render.POST_X_INNER:.1f} mm apart: {clearance:+.2f} mm",
+        )
+    widest = max(spec["width"] for spec in render.LAPTOPS.values())
+    failures.check(
+        2 * params.EAR_OFFSET_X + 2 * 0.65 >= widest,
+        f"the widest laptop ({widest:.1f} mm) does not fit the ears' " "laptop relief",
     )
 
 
@@ -259,6 +331,8 @@ def main():
         ("inventory", lambda f: check_inventory(parts, f)),
         ("rods", lambda f: check_rods(parts, f)),
         ("laptops", lambda f: check_laptops(parts, f)),
+        ("clearances", check_clearances),
+        ("interference", lambda f: check_interference(parts, f)),
         ("cabinet", lambda f: check_cabinet(parts, f)),
         ("duct placement", lambda f: check_duct_placement(parts, f)),
         ("view directions", check_views),

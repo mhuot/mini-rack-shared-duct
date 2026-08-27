@@ -69,7 +69,20 @@ COLOURS = {
 # corner extrusions, open front and rear frames, closed acrylic sides and top.
 # Numbers match build_rack_mockup.py, which is the Fusion version of this.
 RACK_U = 4
-POST_X_INNER = 110.5
+# The clear opening between the cabinet's vertical rails, per side.
+#
+# This is a *requirement of the design*, not a dimension measured off a real
+# cabinet, and it is worth being honest about which. Upstream's mockup used
+# 110.5, giving a 221.0 mm opening -- 0.2 mm narrower than the 221.2 mm
+# MacBook Pro 14 the whole project is built around. The laptop has to pass
+# through this gap to get in, so at 110.5 the model says the reference laptop
+# does not fit through the front of the rack. Nobody noticed because nothing
+# ever checked it.
+#
+# 111.0 is the smallest round number that clears it. check_render.py asserts
+# every laptop passes, so if a wider one is added this fails instead of quietly
+# intersecting the frame. Measure your own cabinet before trusting it.
+POST_X_INNER = 111.0
 POST_X_OUTER = 127.0
 FRAME_Y0 = -12.0
 FRAME_Y1 = RACK_U * params.RACK_UNIT + 12.0

@@ -96,6 +96,13 @@ the back of the rack.
 Neither would have failed a test that only asked whether the script finished.
 So `python scripts/check_render.py` asserts the things the renders claim:
 
+- **no part passes through another part.** Laptops against rails, printed
+  parts against rails, rods against rails, anything against the acrylic. A
+  tolerance of 25 mm³ absorbs coincident-surface films (a laptop resting
+  exactly on the plane the ear's relief is cut to) so the check does not cry
+  wolf; anything above that is a collision
+- every laptop clears the opening it has to slide through, reported as a
+  clearance so a failure says by how much
 - every part is present, once, and has positive volume — a silently dropped
   part shows up as a count
 - rods are 243 mm **along z**, Ø8, on the rod lines. This is the check that
@@ -108,8 +115,23 @@ So `python scripts/check_render.py` asserts the things the renders claim:
 - **each view's caption matches where the camera actually points.** A view that
   says "from the front" must have a view direction with positive z
 
-The last one is the interesting half. A caption is a claim, and this is the
+The caption rule is the interesting one. A caption is a claim, and this is the
 only thing in the repo that checks a claim made in words against geometry.
+
+### What the interference check found immediately
+
+The cabinet's clear opening was modelled at **221.0 mm** between rails, and a
+MacBook Pro 14 is **221.2 mm** wide. The laptop has to slide through that gap
+to get into the rack, so the model was quietly asserting that the reference
+laptop does not fit through the front of its own rack — by 0.2 mm, in every
+render this project and its upstream have ever published.
+
+The model now uses 222.0 mm, which is the **minimum the design requires**, not
+a dimension measured off a real cabinet. That distinction matters: if you are
+building this, measure the clear opening between your rack's rails and check it
+against the laptop you intend to put in. The ears' own laptop relief is cut to
+221.9 mm, so that is the widest this design accommodates regardless of what
+your cabinet does.
 
 Both original bugs were re-introduced deliberately to confirm the check fails
 on them, which caught a third bug — in the checker itself. Two of its three
