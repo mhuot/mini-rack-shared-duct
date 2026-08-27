@@ -48,6 +48,13 @@ for _candidate in (_HERE, os.path.expanduser("~/mini-rack-shared-duct/scripts"))
     if _candidate and _candidate not in sys.path and os.path.isdir(_candidate):
         sys.path.insert(0, _candidate)
 
+# Fusion's Python interpreter persists between script executions, so a module
+# imported by an earlier run is still in sys.modules with its old values. Edit
+# a dimension, re-run this, and it silently rebuilds the previous geometry and
+# reports success -- which defeats the entire point of keeping the numbers in
+# one file. Drop it first so every run reads the file off disk.
+sys.modules.pop("shared_duct_params", None)
+
 import shared_duct_params as params  # noqa: E402  # pylint: disable=wrong-import-position
 
 MM = 0.1  # Fusion API lengths are in cm
@@ -58,7 +65,7 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
     params.check_fits()
 
     app = adsk.core.Application.get()
-    doc = app.documents.add(adsk.core.DocumentTypes.FusionDesignDocumentType)
+    doc = _target_document(app)
     design = adsk.fusion.Design.cast(app.activeProduct)
     root = design.rootComponent
     extrudes = root.features.extrudeFeatures
@@ -187,6 +194,30 @@ def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
     _chamfer_inlet(root, body)
 
     _report(app, doc, body)
+
+
+def _target_document(app):
+    """The document to build into: the active one if blank, otherwise a new one.
+
+    Building into a blank active document is what lets a saved file be
+    re-versioned rather than duplicated. Clear a saved design's bodies and
+    timeline, run this, and `doc.save()` produces the next version of that file
+    with its parametric history rebuilt -- where creating a new document and
+    saving it under the same name leaves two files with one name.
+
+    "Blank" is checked rather than assumed, so this can never overwrite work:
+    an active design with any body or any timeline feature is left alone and a
+    new document is created instead.
+    """
+    design = adsk.fusion.Design.cast(app.activeProduct)
+    if design is not None:
+        root = design.rootComponent
+        blank = root.bRepBodies.count == 0 and design.timeline.count == 0
+        if blank:
+            name = app.activeDocument.name
+            print(f"building into the blank active document {name!r}")
+            return app.activeDocument
+    return app.documents.add(adsk.core.DocumentTypes.FusionDesignDocumentType)
 
 
 def _chamfer_inlet(root, body):

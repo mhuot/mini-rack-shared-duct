@@ -22,7 +22,7 @@ That leaves only the top and the bottom to close, so the plate grows **two** duc
 
 - **Front and rear ears, rods and laptop mounting are unchanged from upstream.** Mirrored pairs bolt to the rack rails, each carrying two 8 mm smooth-rod positions 24 mm apart; the laptop slides between the rod pairs and rests on the lower rods. Rods are 243 mm. Nothing in this fork touches any of it.
 - **The rear ears still extend 72 mm out the back**, and the laptop's rear edge still stops against their back plates 65 mm in, leaving the same 7 mm duct exit. Each rack unit feeds that 7 mm gap into the shared plenum instead of into its own fans.
-- **One plate spans the whole stack** — 222 × 132.55 × 4 mm — bolted at **twelve** M3 screws into the heat-set inserts the ears already have, six per side. It carries two 2.2 mm duct walls, grown onto its front face, that slide into the duct rails of the bottom ear and the top ear.
+- **One plate spans the whole stack** — 222 × 132.55 × 4 mm — bolted at **twelve** M3 screws into the heat-set inserts the ears already have, six per side. It carries two 2.2 mm duct walls, 193.44 mm wide, grown onto its front face, that slide into the duct rails of the bottom ear and the top ear with 0.60 mm of clearance a side.
 - **One 120 mm 12 V case fan** sits in the middle of it, over a Ø114 opening. Frame, 105 mm screw pitch and Ø4.5 corner holes are the sizes every vendor already builds to, so a fan pulled out of an old PC drops straight in.
 - The cabinet's closed acrylic sides and top still make the front opening the only intake, so flow is front-to-back through every slot.
 
@@ -35,7 +35,7 @@ Upstream's argument was that three Ø39 openings (3584 mm²) roughly matched one
 `scripts/check_rear_assembly.py` measures the plenum off the actual meshes, with three laptops in it:
 
 ```
-plenum free area              :    13649 mm2
+plenum free area              :    13645 mm2
 fan opening O114              :    10207 mm2
 opening as a share of the duct:     74.8%
 the opening is the restriction, not the duct
@@ -90,15 +90,15 @@ Everything below is measured, not asserted. `python scripts/check_rear_assembly.
   0 clash(es)
 
 === is the shared duct sealed? ===
-  as built, 0.10 mm slide clearance      z= 36.0  plenum   34685.3 mm2  open
+  as built, 0.60 mm slide clearance      z= 36.0  plenum   34689.7 mm2  open
   walls run out to the groove floor      z= 36.0  plenum   26294.0 mm2  sealed
 
 === the slide clearance, as a hole ===
-  leak area, 4 wall ends        :     0.88 mm2
-  as a share of the fan opening :    0.009%
+  leak area, 4 wall ends        :     5.28 mm2
+  as a share of the fan opening :    0.052%
 ```
 
-The duct "leaks", and it is supposed to: each duct wall stops 0.10 mm short of the ear's groove floor so the plate can be assembled at all. A cross-section cannot tell that gap from a missing face, so the test runs twice — once as built, once against a plate whose walls run all the way to the groove floor. The second one seals, which is the claim worth making: **there is no hole in this duct beyond the clearance it needs to go together**, and that clearance is 0.88 mm², or 0.009% of the fan opening.
+The duct "leaks", and it is supposed to: each duct wall stops 0.60 mm short of the ear's groove floor so the plate can be assembled at all. That clearance is deliberately generous — the wall is a 193 mm span on a 250 mm bed, where thermal contraction and a squashed first layer each cost more than a tenth of a millimetre, and 0.60 mm still leaves 11.4 mm of engagement in a 12 mm slot. A cross-section cannot tell that gap from a missing face, so the test runs twice — once as built, once against a plate whose walls run all the way to the groove floor. The second one seals, which is the claim worth making: **there is no hole in this duct beyond the clearance it needs to go together**, and that clearance is 5.28 mm², or 0.052% of the fan opening.
 
 ### The one failure this fork can have that upstream could not
 

@@ -28,7 +28,7 @@ CFM_TO_M3S = 0.0004719474
 
 # Measured by check_rear_assembly.py off the actual meshes, with three laptops
 # in the rack. Not nominal dimensions -- the numbers that script prints.
-PLENUM_FREE_AREA_MM2 = 13649.0
+PLENUM_FREE_AREA_MM2 = 13645.0
 FAN_OPENING_AREA_MM2 = 10207.0
 RACK_UNITS = 3
 

@@ -51,7 +51,18 @@ HEAD_CBORE_DEPTH = 2.0
 # rather than leak paths. Filling them would divide the plenum, which is the
 # one thing this fork exists to avoid.
 
-WALL_HALF_WIDTH = 194.44 / 2  # reaches into the duct rails, as upstream
+# How far each wall end stops short of the ear's groove floor. This is the
+# parameter, and the width is derived from it, because the fit is the thing
+# that matters and the width is only how you achieve it.
+#
+# Upstream's panels were 194.44 wide against groove floors 194.64 apart, so
+# 0.10 mm a side. That is fine as a drawing and tight as a print: the wall is a
+# 193 mm span on a 250 mm bed, where thermal contraction and a squashed first
+# layer are each worth more than 0.10 mm on their own. 0.60 mm a side is still
+# 11.4 mm of engagement in a 12 mm slot, and costs 4.4 mm2 of extra leak area
+# in a duct whose fan opening is 10,207 mm2.
+WALL_SLIDE_CLEARANCE = 0.6
+WALL_HALF_WIDTH = GROOVE_FLOOR_X - WALL_SLIDE_CLEARANCE
 WALL_THICKNESS = 2.2
 WALL_DEPTH = EAR_DEPTH
 SLOT_SLACK = (EAR_SLOT_HEIGHT - WALL_THICKNESS) / 2  # centre it in the slot

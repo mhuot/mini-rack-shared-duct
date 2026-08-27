@@ -74,6 +74,13 @@ ordering, colour classification, glTF colour space, `pointContainment` probes,
 ray-cast solid spans, exact booleans, BRep-versus-mesh comparison: all there,
 none of it repeated here. What follows is only what is true of *this repo*.
 
+**Fusion caches imported modules between runs.** Its interpreter persists, so
+`shared_duct_params` stays in `sys.modules` from the previous execution with the
+previous numbers. Change a dimension, re-run `build_shared_fan_plate.py`, and it
+rebuilds the old geometry and reports success — which defeats the single-source-
+of-truth module entirely. The script pops the module before importing it; don't
+remove that.
+
 **Sketch names are prefixed `Sketch: `.** The skill explains why matching
 timeline items by exact name is dangerous; this is the convention adopted in
 response. `build_shared_fan_plate.py` names every sketch `Sketch: plate`,
