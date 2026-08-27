@@ -21,8 +21,8 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-EDGE_SAMPLE = 4      # columns at each side used to estimate the background
-TOLERANCE = 22       # per-channel distance still counted as background
+EDGE_SAMPLE = 4  # columns at each side used to estimate the background
+TOLERANCE = 22  # per-channel distance still counted as background
 
 
 def flatten(path, tolerance=TOLERANCE):
@@ -32,8 +32,9 @@ def flatten(path, tolerance=TOLERANCE):
 
     left = pixels[:, :EDGE_SAMPLE, :]
     right = pixels[:, -EDGE_SAMPLE:, :]
-    row_background = np.median(
-        np.concatenate([left, right], axis=1), axis=1).astype(np.int16)
+    row_background = np.median(np.concatenate([left, right], axis=1), axis=1).astype(
+        np.int16
+    )
 
     difference = np.abs(pixels - row_background[:, None, :]).max(axis=2)
     candidate = difference <= tolerance
@@ -41,8 +42,9 @@ def flatten(path, tolerance=TOLERANCE):
     labels, count = ndimage.label(candidate)
     if count == 0:
         return 0
-    border = np.unique(np.concatenate([
-        labels[0, :], labels[-1, :], labels[:, 0], labels[:, -1]]))
+    border = np.unique(
+        np.concatenate([labels[0, :], labels[-1, :], labels[:, 0], labels[:, -1]])
+    )
     border = border[border != 0]
     background = np.isin(labels, border)
 
@@ -54,6 +56,7 @@ def flatten(path, tolerance=TOLERANCE):
 
 
 def main():
+    """Flatten the viewport gradient to white in every render."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("images", nargs="+", type=Path)
     parser.add_argument("--tolerance", type=int, default=TOLERANCE)

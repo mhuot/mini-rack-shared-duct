@@ -21,6 +21,7 @@ STL_PATH = "/Users/mhuot/mini-rack/exports/front_ear.stl"
 
 
 def run(_context: str):
+    """Export the front ear as an STL, with its tangency relief."""
     app = adsk.core.Application.get()
     source_doc = None
     for doc in app.documents:
@@ -28,7 +29,7 @@ def run(_context: str):
             source_doc = doc
             break
     if source_doc is None:
-        raise RuntimeError("Document '%s' is not open" % SOURCE_DOC)
+        raise RuntimeError(f"Document '{SOURCE_DOC}' is not open")
     source_doc.activate()
     source_design = adsk.fusion.Design.cast(app.activeProduct)
 
@@ -38,17 +39,25 @@ def run(_context: str):
 
     center = adsk.core.Point3D.create(
         (TANGENCY_X0 + TANGENCY_X1) / 2 * MM,
-        (TANGENCY_Y0 + TANGENCY_Y1) / 2 * MM, 4.0 * MM)
-    relief = temp_mgr.createBox(adsk.core.OrientedBoundingBox3D.create(
-        center,
-        adsk.core.Vector3D.create(1, 0, 0),
-        adsk.core.Vector3D.create(0, 1, 0),
-        (TANGENCY_X1 - TANGENCY_X0) * MM,
-        (TANGENCY_Y1 - TANGENCY_Y0) * MM, 12.0 * MM))
+        (TANGENCY_Y0 + TANGENCY_Y1) / 2 * MM,
+        4.0 * MM,
+    )
+    relief = temp_mgr.createBox(
+        adsk.core.OrientedBoundingBox3D.create(
+            center,
+            adsk.core.Vector3D.create(1, 0, 0),
+            adsk.core.Vector3D.create(0, 1, 0),
+            (TANGENCY_X1 - TANGENCY_X0) * MM,
+            (TANGENCY_Y1 - TANGENCY_Y0) * MM,
+            12.0 * MM,
+        )
+    )
     temp_mgr.booleanOperation(
-        combined, relief, adsk.fusion.BooleanTypes.DifferenceBooleanType)
+        combined, relief, adsk.fusion.BooleanTypes.DifferenceBooleanType
+    )
 
-    new_doc = app.documents.add(adsk.core.DocumentTypes.FusionDesignDocumentType)
+    # Created for its side effect: it becomes the active product below.
+    app.documents.add(adsk.core.DocumentTypes.FusionDesignDocumentType)
     new_design = adsk.fusion.Design.cast(app.activeProduct)
     new_design.designType = adsk.fusion.DesignTypes.DirectDesignType
     new_body = new_design.rootComponent.bRepBodies.add(combined)
@@ -57,4 +66,4 @@ def run(_context: str):
     stl = new_design.exportManager.createSTLExportOptions(new_body, STL_PATH)
     stl.meshRefinement = adsk.fusion.MeshRefinementSettings.MeshRefinementHigh
     new_design.exportManager.execute(stl)
-    print("exported %s" % STL_PATH)
+    print(f"exported {STL_PATH}")

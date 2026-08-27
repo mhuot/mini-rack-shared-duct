@@ -17,6 +17,8 @@ matplotlib.use("Agg")  # pylint: disable=wrong-import-position
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import trimesh  # noqa: E402
+
+from mesh_helpers import ray_crossings  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
 
 OUT = Path("docs/images/laptop-depth.png")
@@ -53,24 +55,8 @@ DIM = "#0b6b3a"
 def channel_closes(stl_path):
     """Depth into the ear at which the laptop channel gives way to the plate."""
     mesh = trimesh.load_mesh(stl_path)
-    triangles = mesh.triangles
     origin = np.array([-14.0, 22.0, -20.0])
-    direction = np.array([0.0, 0.0, 1.0])
-    corner = triangles[:, 0]
-    edge_a, edge_b = triangles[:, 1] - corner, triangles[:, 2] - corner
-    pvec = np.cross(direction, edge_b)
-    determinant = np.einsum("ij,ij->i", edge_a, pvec)
-    usable = np.abs(determinant) > 1e-9
-    inverse = np.where(usable, 1.0 / np.where(usable, determinant, 1.0), 0.0)
-    to_corner = origin - corner
-    bary_u = np.einsum("ij,ij->i", to_corner, pvec) * inverse
-    qvec = np.cross(to_corner, edge_a)
-    bary_v = np.einsum("j,ij->i", direction, qvec) * inverse
-    distance = np.einsum("ij,ij->i", edge_b, qvec) * inverse
-    hit = (
-        usable & (bary_u >= 0) & (bary_v >= 0) & (bary_u + bary_v <= 1) & (distance > 0)
-    )
-    crossings = np.sort(origin[2] + distance[hit])
+    crossings = origin[2] + ray_crossings(mesh.triangles, origin, [0.0, 0.0, 1.0])
     if len(crossings) < 2:
         raise SystemExit("could not find the back plate face in the ear")
     return float(crossings[0])

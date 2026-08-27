@@ -23,12 +23,13 @@ import adsk.fusion
 MM = 0.1  # Fusion API lengths are in cm
 
 DOCUMENT = "MacBook Pro Rear Ear v2 Parametric"
-RELIEF_X0, RELIEF_X1 = -0.05, 0.65     # into the 2 mm side wall
-RELIEF_Y0, RELIEF_Y1 = 9.7, 34.7       # the laptop band
-RELIEF_DEPTH = 67.1                    # the laptop's rear edge stops at 65
+RELIEF_X0, RELIEF_X1 = -0.05, 0.65  # into the 2 mm side wall
+RELIEF_Y0, RELIEF_Y1 = 9.7, 34.7  # the laptop band
+RELIEF_DEPTH = 67.1  # the laptop's rear edge stops at 65
 
 
 def run(_context: str):
+    """Recut the laptop relief on the rear ear."""
     app = adsk.core.Application.get()
     for index in range(app.documents.count):
         if app.documents.item(index).name == DOCUMENT:
@@ -48,16 +49,19 @@ def run(_context: str):
     sketch.name = "Laptop relief recut"
     sketch.sketchCurves.sketchLines.addTwoPointRectangle(
         adsk.core.Point3D.create(RELIEF_X0 * MM, RELIEF_Y0 * MM, 0),
-        adsk.core.Point3D.create(RELIEF_X1 * MM, RELIEF_Y1 * MM, 0))
+        adsk.core.Point3D.create(RELIEF_X1 * MM, RELIEF_Y1 * MM, 0),
+    )
 
     profiles = adsk.core.ObjectCollection.create()
     for profile in sketch.profiles:
         profiles.add(profile)
     extrudes = root.features.extrudeFeatures
     definition = extrudes.createInput(
-        profiles, adsk.fusion.FeatureOperations.CutFeatureOperation)
+        profiles, adsk.fusion.FeatureOperations.CutFeatureOperation
+    )
     definition.setDistanceExtent(
-        False, adsk.core.ValueInput.createByReal(RELIEF_DEPTH * MM))
+        False, adsk.core.ValueInput.createByReal(RELIEF_DEPTH * MM)
+    )
     cut = extrudes.add(definition)
     cut.name = "Laptop relief recut"
 
@@ -65,8 +69,10 @@ def run(_context: str):
 
     def solid(x_mm, y_mm, z_mm):
         point = adsk.core.Point3D.create(x_mm * MM, y_mm * MM, z_mm * MM)
-        return body.pointContainment(point) == \
-            adsk.fusion.PointContainment.PointInsidePointContainment
+        return (
+            body.pointContainment(point)
+            == adsk.fusion.PointContainment.PointInsidePointContainment
+        )
 
     print(f"  relief void at x=0.3, laptop band : {not solid(0.3, 22.0, 30.0)}")
     print(f"  side wall still there at x=1.3    : {solid(1.3, 22.0, 30.0)}")

@@ -12,3 +12,12 @@ max-positional-arguments = 8
 # The scripts are run as files from the repo root with scripts/ on the path,
 # not installed as a package, so pylint cannot resolve the sibling imports.
 disable = import-error
+
+[SIMILARITIES]
+# R0801 is off, and only for one reason worth writing down. Four Fusion scripts
+# open with the same dozen lines that walk app.documents looking for a document
+# by name prefix. Factoring it would mean a shared module that only ever runs
+# inside Fusion, which nothing here can execute or test, to save four copies of
+# a loop. The duplication that could be removed safely -- the ray caster and the
+# mesh report block, both local -- already has been, into mesh_helpers.py.
+min-similarity-lines = 100

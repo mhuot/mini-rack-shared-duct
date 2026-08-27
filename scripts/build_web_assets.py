@@ -36,18 +36,18 @@ PALETTE = {
     "surface": (28, 28, 30, 255),
     "fan": (94, 61, 48, 255),
     "print": (247, 84, 3, 255),  # Prusament Prusa Orange
-    "panel": (40, 40, 46, 90),   # smoked acrylic, alpha-blended
+    "panel": (40, 40, 46, 90),  # smoked acrylic, alpha-blended
 }
 
 METALLIC = {"frame": 0.6, "rod": 0.6}
 ROUGHNESS = {"rod": 0.35}
 
 
-def classify(stem: str) -> str:
+def classify(stem: str) -> str:  # pylint: disable=too-many-return-statements
     """Map an exported body filename to a palette group."""
     lower = stem.lower()
     if "duct" in lower:
-        return "print"          # a printed duct panel, not the acrylic kind
+        return "print"  # a printed duct panel, not the acrylic kind
     if "panel" in lower:
         return "panel"
     if "foot" in lower:
@@ -59,7 +59,7 @@ def classify(stem: str) -> str:
     if "ref" in lower and "surface" in lower:
         return "surface"
     if "fan_plate" in lower:
-        return "print"          # the printed plate, not a Noctua
+        return "print"  # the printed plate, not a Noctua
     if "fan" in lower:
         return "fan"
     if "rod" in lower:
@@ -75,25 +75,38 @@ def srgb_to_linear(rgba_255):
 
 
 def build_gif(frames_dir: Path) -> None:
+    """Assemble the turntable frames into a GIF."""
     frames = []
     for frame_path in sorted(frames_dir.glob("frame_*.png")):
         image = Image.open(frame_path).convert("RGB")
         frames.append(image.quantize(colors=128, dither=Image.Dither.FLOYDSTEINBERG))
     if not frames:
         raise SystemExit(f"no frames found in {frames_dir}")
-    frames[0].save(GIF_PATH, save_all=True, append_images=frames[1:],
-                   duration=90, loop=0, optimize=True)
-    print(f"GIF: {GIF_PATH} ({GIF_PATH.stat().st_size / 1e6:.2f} MB, {len(frames)} frames)")
+    frames[0].save(
+        GIF_PATH,
+        save_all=True,
+        append_images=frames[1:],
+        duration=90,
+        loop=0,
+        optimize=True,
+    )
+    print(
+        f"GIF: {GIF_PATH} ({GIF_PATH.stat().st_size / 1e6:.2f} MB, {len(frames)} frames)"
+    )
 
 
 def build_glb(parts_dir: Path) -> None:
+    """Colour the exported bodies and pack them into a GLB."""
     # Z-up (Fusion world) -> Y-up (glTF)
-    z_to_y_up = np.array([
-        [1, 0, 0, 0],
-        [0, 0, 1, 0],
-        [0, -1, 0, 0],
-        [0, 0, 0, 1],
-    ], dtype=np.float64)
+    z_to_y_up = np.array(
+        [
+            [1, 0, 0, 0],
+            [0, 0, 1, 0],
+            [0, -1, 0, 0],
+            [0, 0, 0, 1],
+        ],
+        dtype=np.float64,
+    )
 
     scene = trimesh.Scene()
     counts = {}
@@ -108,7 +121,8 @@ def build_glb(parts_dir: Path) -> None:
                 metallicFactor=METALLIC.get(group, 0.1),
                 roughnessFactor=ROUGHNESS.get(group, 0.6),
                 alphaMode="BLEND" if group == "panel" else "OPAQUE",
-            ))
+            )
+        )
         scene.add_geometry(mesh, node_name=stl_path.stem)
     if not counts:
         raise SystemExit(f"no part STLs found in {parts_dir}")
@@ -135,21 +149,41 @@ def build_explode_gif(explode_dir: Path) -> None:
     durations[0] = hold
     durations[len(frames) - 1] = hold
     sequence[0].save(
-        EXPLODE_GIF_PATH, save_all=True, append_images=sequence[1:],
-        duration=durations, loop=0, optimize=True)
+        EXPLODE_GIF_PATH,
+        save_all=True,
+        append_images=sequence[1:],
+        duration=durations,
+        loop=0,
+        optimize=True,
+    )
     size = EXPLODE_GIF_PATH.stat().st_size / 1e6
-    print(f"explode GIF: {EXPLODE_GIF_PATH} ({size:.2f} MB, "
-          f"{len(sequence)} frames from {len(frames)} states)")
+    print(
+        f"explode GIF: {EXPLODE_GIF_PATH} ({size:.2f} MB, "
+        f"{len(sequence)} frames from {len(frames)} states)"
+    )
 
 
 def main() -> None:
+    """Build whichever web assets the arguments ask for."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--explode-dir", type=Path, default=None,
-                        help="directory of exploded-state PNGs (state_*.png)")
-    parser.add_argument("--parts-dir", type=Path, required=True,
-                        help="directory of per-body STL exports")
-    parser.add_argument("--frames-dir", type=Path, required=True,
-                        help="directory of turntable frame PNGs")
+    parser.add_argument(
+        "--explode-dir",
+        type=Path,
+        default=None,
+        help="directory of exploded-state PNGs (state_*.png)",
+    )
+    parser.add_argument(
+        "--parts-dir",
+        type=Path,
+        required=True,
+        help="directory of per-body STL exports",
+    )
+    parser.add_argument(
+        "--frames-dir",
+        type=Path,
+        required=True,
+        help="directory of turntable frame PNGs",
+    )
     args = parser.parse_args()
     build_gif(args.frames_dir)
     build_glb(args.parts_dir)

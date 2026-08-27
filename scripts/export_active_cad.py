@@ -19,6 +19,7 @@ NAME = "part"
 
 
 def run(_context: str):
+    """Export the active document as a STEP and an F3D."""
     app = adsk.core.Application.get()
     design = adsk.fusion.Design.cast(app.activeProduct)
     if design is None:
@@ -26,14 +27,14 @@ def run(_context: str):
     root = design.rootComponent
     if root.bRepBodies.count == 0:
         raise RuntimeError(
-            f"no bodies in {app.activeDocument.name!r} -- nothing to export")
+            f"no bodies in {app.activeDocument.name!r} -- nothing to export"
+        )
 
     export_mgr = design.exportManager
     step_path = f"{CAD_DIR}/{NAME}.step"
     archive_path = f"{CAD_DIR}/{NAME}.f3d"
     export_mgr.execute(export_mgr.createSTEPExportOptions(step_path, root))
-    export_mgr.execute(export_mgr.createFusionArchiveExportOptions(
-        archive_path, root))
+    export_mgr.execute(export_mgr.createFusionArchiveExportOptions(archive_path, root))
 
     bodies = [root.bRepBodies.item(i).name for i in range(root.bRepBodies.count)]
     print(f"exported {NAME}: {len(bodies)} body/bodies {bodies}")

@@ -26,6 +26,7 @@ import shared_duct_params as params
 from mesh_helpers import box as _box
 from mesh_helpers import conical_ring
 from mesh_helpers import cylinder as _cylinder
+from mesh_helpers import report_mesh
 
 EXPORTS = Path("exports")
 STL_PATH = EXPORTS / "shared_fan_plate.stl"
@@ -135,17 +136,7 @@ def main():
     arguments.out.parent.mkdir(parents=True, exist_ok=True)
     plate.export(arguments.out)
 
-    low, high = plate.bounds
-    print(f"wrote {arguments.out}")
-    print(
-        f"  extents mm : x {low[0]:.2f}..{high[0]:.2f}  "
-        f"y {low[1]:.2f}..{high[1]:.2f}  z {low[2]:.2f}..{high[2]:.2f}"
-    )
-    print(
-        f"  volume     : {plate.volume / 1000:.1f} cm3 "
-        f"({plate.volume * 1.27 / 1000:.0f} g in PETG)"
-    )
-    print(f"  watertight : {plate.is_watertight}")
+    report_mesh(arguments.out, plate)
 
 
 if __name__ == "__main__":

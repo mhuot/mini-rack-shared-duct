@@ -42,7 +42,7 @@ from scipy import ndimage
 
 import build_shared_fan_plate_mesh as plate_builder
 import shared_duct_params as params
-from mesh_helpers import box, mirrored_x
+from mesh_helpers import box, mirrored_x, ray_crossings
 
 FRAME_X = (-135.0, 135.0)
 FRAME_Y = (-2.0, params.DUCT_HEIGHT + 4.0)
@@ -108,25 +108,7 @@ def assemble(ear_gap=0.0, with_laptops=False, seal_walls=False):
 def solid_spans(triangles, y, z):
     """Exact solid intervals along +x through a mesh at (y, z)."""
     origin = np.array([FRAME_X[0] - 50.0, y, z])
-    direction = np.array([1.0, 0.0, 0.0])
-    corner, edge_a, edge_b = (
-        triangles[:, 0],
-        triangles[:, 1] - triangles[:, 0],
-        triangles[:, 2] - triangles[:, 0],
-    )
-    pvec = np.cross(direction, edge_b)
-    determinant = np.einsum("ij,ij->i", edge_a, pvec)
-    usable = np.abs(determinant) > 1e-12
-    inverse = np.where(usable, 1.0 / np.where(usable, determinant, 1.0), 0.0)
-    to_corner = origin - corner
-    bary_u = np.einsum("ij,ij->i", to_corner, pvec) * inverse
-    qvec = np.cross(to_corner, edge_a)
-    bary_v = np.einsum("j,ij->i", direction, qvec) * inverse
-    distance = np.einsum("ij,ij->i", edge_b, qvec) * inverse
-    hit = (
-        usable & (bary_u >= 0) & (bary_v >= 0) & (bary_u + bary_v <= 1) & (distance > 0)
-    )
-    crossings = np.sort(origin[0] + distance[hit])
+    crossings = FRAME_X[0] - 50.0 + ray_crossings(triangles, origin, [1.0, 0.0, 0.0])
     return [(crossings[i], crossings[i + 1]) for i in range(0, len(crossings) - 1, 2)]
 
 

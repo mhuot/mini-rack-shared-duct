@@ -28,6 +28,7 @@ import trimesh
 import shared_duct_params as params
 from mesh_helpers import box as _box
 from mesh_helpers import cylinder as _cylinder
+from mesh_helpers import report_mesh
 
 EXPORTS = Path("exports")
 STL_PATH = EXPORTS / "fan_guard.stl"
@@ -125,21 +126,11 @@ def main():
     screw_area = 4 * math.pi * (params.FAN_SCREW_DIA / 2) ** 2
     rim_area = params.FAN_FRAME**2 - swept - screw_area
     open_area = swept - (solid_area - rim_area)
-    low, high = guard.bounds
-    print(f"wrote {arguments.out}")
-    print(
-        f"  extents mm : x {low[0]:.2f}..{high[0]:.2f}  "
-        f"y {low[1]:.2f}..{high[1]:.2f}  z {low[2]:.2f}..{high[2]:.2f}"
-    )
-    print(
-        f"  volume     : {guard.volume / 1000:.1f} cm3 "
-        f"({guard.volume * 1.27 / 1000:.0f} g in PETG)"
-    )
+    report_mesh(arguments.out, guard)
     print(
         f"  open area  : {open_area:.0f} mm2 of the {swept:.0f} mm2 throat "
         f"({open_area / swept * 100:.0f}%)"
     )
-    print(f"  watertight : {guard.is_watertight}")
 
 
 if __name__ == "__main__":

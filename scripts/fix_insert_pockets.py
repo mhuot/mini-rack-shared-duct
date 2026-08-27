@@ -22,14 +22,15 @@ MM = 0.1  # Fusion API lengths are in cm
 
 DOCUMENT = "MacBook Pro Rear Ear v2 Parametric"
 PAD_FACE_Z = 72.0
-POCKET_DEPTH = 3.2        # CNC Kitchen M3 x 3 short: 3.0 long, 0.2 of melt room
+POCKET_DEPTH = 3.2  # CNC Kitchen M3 x 3 short: 3.0 long, 0.2 of melt room
 POCKET_DIAMETER = 4.0
 POCKET_X = -7.5
 POCKET_ROWS = (15.0, 29.45)
-OVERSHOOT = 0.2           # break cleanly through the pad face
+OVERSHOOT = 0.2  # break cleanly through the pad face
 
 
 def run(_context: str):
+    """Recut the heat-set pockets as one explicit feature."""
     app = adsk.core.Application.get()
     for index in range(app.documents.count):
         if app.documents.item(index).name == DOCUMENT:
@@ -55,8 +56,8 @@ def run(_context: str):
     planes = root.constructionPlanes
     plane_input = planes.createInput()
     plane_input.setByOffset(
-        root.xYConstructionPlane,
-        adsk.core.ValueInput.createByReal(floor_z * MM))
+        root.xYConstructionPlane, adsk.core.ValueInput.createByReal(floor_z * MM)
+    )
     plane = planes.add(plane_input)
     plane.name = "Insert pocket floor"
 
@@ -65,17 +66,19 @@ def run(_context: str):
     for row_y in POCKET_ROWS:
         sketch.sketchCurves.sketchCircles.addByCenterRadius(
             adsk.core.Point3D.create(POCKET_X * MM, row_y * MM, 0),
-            POCKET_DIAMETER / 2 * MM)
+            POCKET_DIAMETER / 2 * MM,
+        )
 
     profiles = adsk.core.ObjectCollection.create()
     for profile in sketch.profiles:
         profiles.add(profile)
     extrudes = root.features.extrudeFeatures
     extrude_input = extrudes.createInput(
-        profiles, adsk.fusion.FeatureOperations.CutFeatureOperation)
+        profiles, adsk.fusion.FeatureOperations.CutFeatureOperation
+    )
     extrude_input.setDistanceExtent(
-        False,
-        adsk.core.ValueInput.createByReal((POCKET_DEPTH + OVERSHOOT) * MM))
+        False, adsk.core.ValueInput.createByReal((POCKET_DEPTH + OVERSHOOT) * MM)
+    )
     bore = extrudes.add(extrude_input)
     bore.name = "Insert pocket bore"
 
@@ -86,8 +89,10 @@ def run(_context: str):
         z = 60.0
         while z <= PAD_FACE_Z + 0.0001:
             point = adsk.core.Point3D.create(x_mm * MM, y_mm * MM, z * MM)
-            inside = body.pointContainment(point) == \
-                adsk.fusion.PointContainment.PointInsidePointContainment
+            inside = (
+                body.pointContainment(point)
+                == adsk.fusion.PointContainment.PointInsidePointContainment
+            )
             if inside and start is None:
                 start = z
             elif not inside and start is not None:

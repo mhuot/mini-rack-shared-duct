@@ -53,6 +53,36 @@ def conical_ring(inner_radius, outer_radius, z_low, z_high, sections=CYLINDER_SE
     return ring
 
 
+def ray_crossings(triangles, origin, direction):
+    """Where a ray crosses a mesh, as distances along it, sorted.
+
+    A vectorised Moller-Trumbore against every triangle at once. It exists
+    because both the seal check and the depth diagram need exact crossings
+    along one axis, and trimesh's own ray module wants an rtree index that is
+    not worth a dependency for two straight lines.
+
+    Both callers rely on the sorting: a solid is the span between crossing
+    pairs, so an unsorted result silently pairs the wrong faces together.
+    """
+    origin = np.asarray(origin, dtype=float)
+    direction = np.asarray(direction, dtype=float)
+    corner = triangles[:, 0]
+    edge_a, edge_b = triangles[:, 1] - corner, triangles[:, 2] - corner
+    pvec = np.cross(direction, edge_b)
+    determinant = np.einsum("ij,ij->i", edge_a, pvec)
+    usable = np.abs(determinant) > 1e-12
+    inverse = np.where(usable, 1.0 / np.where(usable, determinant, 1.0), 0.0)
+    to_corner = origin - corner
+    bary_u = np.einsum("ij,ij->i", to_corner, pvec) * inverse
+    qvec = np.cross(to_corner, edge_a)
+    bary_v = np.einsum("j,ij->i", direction, qvec) * inverse
+    distance = np.einsum("ij,ij->i", edge_b, qvec) * inverse
+    hit = (
+        usable & (bary_u >= 0) & (bary_v >= 0) & (bary_u + bary_v <= 1) & (distance > 0)
+    )
+    return np.sort(distance[hit])
+
+
 def mirrored_x(mesh):
     """Mirror across x, fixing the winding the reflection inverts.
 
@@ -64,3 +94,22 @@ def mirrored_x(mesh):
     if out.volume < 0:
         out.invert()
     return out
+
+
+def report_mesh(out_path, mesh, density=1.27):
+    """Print the numbers worth eyeballing after writing a part.
+
+    Watertight is the one that matters: a mesh that is not is a part the
+    slicer will quietly guess at, and the guess is rarely what you drew.
+    """
+    low, high = mesh.bounds
+    print(f"wrote {out_path}")
+    print(
+        f"  extents mm : x {low[0]:.2f}..{high[0]:.2f}  "
+        f"y {low[1]:.2f}..{high[1]:.2f}  z {low[2]:.2f}..{high[2]:.2f}"
+    )
+    print(
+        f"  volume     : {mesh.volume / 1000:.1f} cm3 "
+        f"({mesh.volume * density / 1000:.0f} g in PETG)"
+    )
+    print(f"  watertight : {mesh.is_watertight}")
