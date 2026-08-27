@@ -36,6 +36,7 @@ from mesh_helpers import mirrored_x  # noqa: E402
 
 EXPORTS = Path("exports")
 IMAGES = Path("docs/images")
+GLB_PATH = Path("docs/models/shared-duct.glb")
 
 # The rack, in the frame build_rack_mockup.py uses: z is depth into the rack,
 # the rear rack rail sits at z = 200, and y climbs the stack from the floor of
@@ -138,6 +139,40 @@ def assemble():
                 parts.append((rod, "rod"))
 
     return parts
+
+
+def srgb_to_linear(rgb):
+    """glTF baseColorFactor is linear; the palette is authored in sRGB.
+
+    Skipping this conversion is why an untreated export looks washed out next
+    to the same colours in a PNG.
+    """
+    srgb = np.array(rgb, dtype=np.float64)
+    return np.where(srgb <= 0.04045, srgb / 12.92, ((srgb + 0.055) / 1.055) ** 2.4)
+
+
+def write_glb(parts, out_path):
+    """Export the assembly as a GLB, for the viewer on the project page.
+
+    Upstream's GLB came out of a Fusion session by way of build_web_assets.py.
+    This one is the same meshes the checks run against, which means the model
+    on the page cannot show a version of the duct that was never verified.
+    """
+    scene = trimesh.Scene()
+    for index, (mesh, colour_name) in enumerate(parts):
+        coloured = mesh.copy()
+        coloured.visual = trimesh.visual.TextureVisuals(
+            material=trimesh.visual.material.PBRMaterial(
+                baseColorFactor=np.append(srgb_to_linear(COLOURS[colour_name]), 1.0),
+                metallicFactor=0.6 if colour_name == "rod" else 0.0,
+                roughnessFactor=0.35 if colour_name == "rod" else 0.7,
+            )
+        )
+        scene.add_geometry(coloured, node_name=f"{colour_name}_{index}")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(trimesh.exchange.gltf.export_glb(scene))
+    return out_path
 
 
 def camera(azimuth_deg, elevation_deg):
@@ -426,6 +461,7 @@ def main():
     print(f"wrote {arguments.drawing_out}")
 
     parts = assemble()
+    print(f"wrote {write_glb(parts, GLB_PATH)}")
     views = (
         (-38.0, 22.0, "From behind: one duct, one fan, three laptops"),
         (18.0, 14.0, "From the front: the plenum all three share"),
