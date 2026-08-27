@@ -318,6 +318,30 @@ def draw_plate_drawing(axes):
             lw=1.6,
         )
     )
+    # The inlet chamfer is on the far side from this view, so it shows as the
+    # wider circle the opening flares out to where it meets the duct.
+    if params.FAN_INLET_CHAMFER:
+        axes.add_patch(
+            plt.Circle(
+                (params.FAN_CENTRE_X, params.FAN_CENTRE_Y),
+                params.FAN_OPENING_DIA / 2 + params.FAN_INLET_CHAMFER,
+                facecolor="none",
+                edgecolor=COLOURS["print"],
+                ls=(0, (4, 3)),
+                lw=1.0,
+            )
+        )
+        axes.annotate(
+            f"{params.FAN_INLET_CHAMFER:.0f} mm inlet chamfer,\nduct side",
+            xy=(
+                -(params.FAN_OPENING_DIA / 2 + params.FAN_INLET_CHAMFER) * 0.71,
+                params.FAN_CENTRE_Y + (params.FAN_OPENING_DIA / 2) * 0.71,
+            ),
+            xytext=(-params.PLATE_WIDTH / 2 + 8, params.DUCT_HEIGHT - 16),
+            fontsize=8,
+            color="#8a3b12",
+            arrowprops={"arrowstyle": "->", "color": "#8a3b12", "lw": 0.9},
+        )
     for screw_x, screw_y in params.fan_screw_centres():
         axes.add_patch(
             plt.Circle((screw_x, screw_y), params.FAN_SCREW_DIA / 2, color="#444")
