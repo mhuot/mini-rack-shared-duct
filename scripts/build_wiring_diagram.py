@@ -1,9 +1,15 @@
-"""Draw the fan plate from behind: fans, tie slots and how the leads route.
+"""Draw the shared duct fan plate from behind: the fan, the tie slots, the lead.
 
     python scripts/build_wiring_diagram.py
 
-Writes docs/images/fan-wiring.png. Geometry comes from the same constants as
-build_rear_fan_plate.py, so the diagram cannot drift from the part.
+Writes docs/images/fan-wiring.png. Geometry comes from shared_duct_params.py,
+so the diagram cannot drift from the part.
+
+Upstream this drawing had to explain nine fans' worth of splices. One 12 V
+case fan needs almost none of that, so the second panel spends the space on
+the thing that is actually easy to get wrong: where the 12 V comes from. Three
+supplies are drawn, because all three are reasonable and which one is right
+depends on what is already in the rack.
 
 Requires matplotlib.
 """
@@ -11,140 +17,225 @@ Requires matplotlib.
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, FancyArrowPatch, Rectangle
+
+matplotlib.use("Agg")  # pylint: disable=wrong-import-position
+
+import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.patches import Circle, Rectangle  # noqa: E402
+
+import shared_duct_params as params  # noqa: E402
 
 OUT = Path("docs/images/fan-wiring.png")
 
-PLATE_WIDTH, PLATE_Y0, PLATE_Y1 = 222.0, 0.4, 44.05
-FAN_CENTRES_X = (-63.55, 0.0, 63.55)
-FAN_CENTRE_Y, FAN_OPENING_DIA, FAN_BODY = 22.225, 39.0, 40.0
-FAN_SCREW_PITCH, FAN_SCREW_DIA = 32.0, 3.6
-BOSS_X, BOSS_ROWS, CBORE_DIA = 102.82, (15.0, 29.45), 6.5
-TIE_SLOT_X = (-31.78, 31.78, 89.44)
-TIE_SLOT_Y = (17.5, 27.0)
-TIE_SLOT_W, TIE_SLOT_H = 2.5, 5.0
-
 PRINTED = "#e2571e"
-FANC = "#5e3d30"
+FAN_BODY = "#5e3d30"
 INK = "#22303c"
 CABLE = "#c62828"
+NEUTRAL = "#37474f"
 TIE = "#1462a8"
 
-# The lead leaves the side of the frame at the plate face, at the corner
-# nearest the bottom. Routed toward +x, where the bundle leaves for the USB
-# supply, each lead is tied down in the first clear span it reaches.
-EXIT_Y = 8.0
-BUNDLE_Y = 22.225
+# A case fan's lead leaves one corner of the frame, not the middle of a side.
+# Drawn from the corner nearest the tie slots, which is the one to point at
+# the plate when you fit it -- turn the fan 90 degrees and the lead has to
+# cross the opening to reach the slots.
+LEAD_CORNER = (
+    params.FAN_FRAME / 2,
+    params.FAN_CENTRE_Y - params.FAN_FRAME / 2,
+)
 
 
-def draw():
-    figure, ax = plt.subplots(figsize=(16, 5.6))
+def draw_plate(axes):
+    """The plate from behind, with the fan on it and the lead tied down."""
+    half_width = params.PLATE_WIDTH / 2
+    axes.add_patch(
+        Rectangle(
+            (-half_width, params.PLATE_Y0),
+            params.PLATE_WIDTH,
+            params.PLATE_Y1 - params.PLATE_Y0,
+            facecolor=PRINTED,
+            alpha=0.16,
+            edgecolor=PRINTED,
+            lw=1.4,
+        )
+    )
+    for unit_index in range(1, params.RACK_UNITS):
+        axes.axhline(
+            unit_index * params.RACK_UNIT,
+            color="#69f",
+            ls=":",
+            lw=0.9,
+            xmin=0.03,
+            xmax=0.97,
+        )
 
-    ax.add_patch(Rectangle((-PLATE_WIDTH / 2, PLATE_Y0), PLATE_WIDTH,
-                           PLATE_Y1 - PLATE_Y0, facecolor=PRINTED, alpha=.13,
-                           edgecolor=PRINTED, lw=1.8))
+    axes.add_patch(
+        Rectangle(
+            (-params.FAN_FRAME / 2, params.FAN_CENTRE_Y - params.FAN_FRAME / 2),
+            params.FAN_FRAME,
+            params.FAN_FRAME,
+            facecolor=FAN_BODY,
+            alpha=0.20,
+            edgecolor=FAN_BODY,
+            lw=1.2,
+        )
+    )
+    axes.add_patch(
+        Circle(
+            (params.FAN_CENTRE_X, params.FAN_CENTRE_Y),
+            params.FAN_OPENING_DIA / 2,
+            facecolor="white",
+            edgecolor=PRINTED,
+            lw=1.4,
+        )
+    )
+    axes.text(
+        params.FAN_CENTRE_X,
+        params.FAN_CENTRE_Y,
+        f"{params.FAN_SIZE} mm\n12 V case fan\nØ{params.FAN_OPENING_DIA:.0f} opening",
+        ha="center",
+        va="center",
+        fontsize=10,
+        color=INK,
+    )
+    for screw_x, screw_y in params.fan_screw_centres():
+        axes.add_patch(
+            Circle((screw_x, screw_y), params.FAN_SCREW_DIA / 2, color=NEUTRAL)
+        )
+    for boss_x in (-params.BOSS_X, params.BOSS_X):
+        for boss_y in params.boss_rows():
+            axes.add_patch(
+                Circle((boss_x, boss_y), params.HEAD_CBORE_DIA / 2, color="#cfd8dc")
+            )
+            axes.add_patch(
+                Circle((boss_x, boss_y), params.SCREW_CLEAR_DIA / 2, color=NEUTRAL)
+            )
 
-    for hole_x in (-BOSS_X, BOSS_X):
-        for hole_y in BOSS_ROWS:
-            ax.add_patch(Circle((hole_x, hole_y), CBORE_DIA / 2,
-                                facecolor="white", edgecolor="#8a3b12", lw=1.1))
-    ax.text(BOSS_X, PLATE_Y1 + 3.5, "M3 into the ear", ha="center",
-            fontsize=8.5, color="#8a3b12")
+    for slot_x in params.TIE_SLOT_X:
+        for slot_y in params.TIE_SLOT_Y:
+            axes.add_patch(
+                Rectangle(
+                    (slot_x - params.TIE_SLOT_W / 2, slot_y - params.TIE_SLOT_H / 2),
+                    params.TIE_SLOT_W,
+                    params.TIE_SLOT_H,
+                    facecolor=TIE,
+                    edgecolor=TIE,
+                )
+            )
 
-    for fan_x in FAN_CENTRES_X:
-        ax.add_patch(Rectangle((fan_x - FAN_BODY / 2, FAN_CENTRE_Y - FAN_BODY / 2),
-                               FAN_BODY, FAN_BODY, facecolor=FANC, alpha=.16,
-                               edgecolor=FANC, lw=1.3, ls="--"))
-        ax.add_patch(Circle((fan_x, FAN_CENTRE_Y), FAN_OPENING_DIA / 2,
-                            facecolor="white", edgecolor=INK, lw=1.6))
-        ax.add_patch(Circle((fan_x, FAN_CENTRE_Y), 7.0, facecolor=FANC,
-                            alpha=.55, edgecolor=FANC))
-        for dx in (-FAN_SCREW_PITCH / 2, FAN_SCREW_PITCH / 2):
-            for dy in (-FAN_SCREW_PITCH / 2, FAN_SCREW_PITCH / 2):
-                ax.add_patch(Circle((fan_x + dx, FAN_CENTRE_Y + dy),
-                                    FAN_SCREW_DIA / 2, facecolor="white",
-                                    edgecolor=INK, lw=.8))
-        ax.text(fan_x, FAN_CENTRE_Y, "fan", ha="center", va="center",
-                fontsize=8.5, color="white", weight="bold")
+    # The lead: out of the fan's corner, up to the run, along it and away.
+    axes.plot(
+        [LEAD_CORNER[0], LEAD_CORNER[0] + 8, params.TIE_SLOT_X[-1] + 24],
+        [LEAD_CORNER[1], params.FAN_CENTRE_Y, params.FAN_CENTRE_Y],
+        color=CABLE,
+        lw=2.2,
+        solid_capstyle="round",
+        zorder=5,
+    )
+    axes.annotate(
+        "one lead, tied twice:\nfirst off the frame,\nthen strain relief",
+        xy=(params.TIE_SLOT_X[0], params.FAN_CENTRE_Y),
+        xytext=(params.TIE_SLOT_X[0] - 4, params.FAN_CENTRE_Y + 26),
+        fontsize=9,
+        color=TIE,
+        ha="center",
+        arrowprops={"arrowstyle": "->", "color": TIE, "lw": 0.9},
+    )
+    axes.annotate(
+        "to 12 V",
+        xy=(params.TIE_SLOT_X[-1] + 24, params.FAN_CENTRE_Y),
+        xytext=(params.TIE_SLOT_X[-1] + 6, params.FAN_CENTRE_Y - 24),
+        fontsize=9.5,
+        color=CABLE,
+        arrowprops={"arrowstyle": "->", "color": CABLE, "lw": 0.9},
+    )
 
-    for slot_x in TIE_SLOT_X:
-        for slot_y in TIE_SLOT_Y:
-            ax.add_patch(Rectangle((slot_x - TIE_SLOT_W / 2, slot_y - TIE_SLOT_H / 2),
-                                   TIE_SLOT_W, TIE_SLOT_H, facecolor=TIE,
-                                   edgecolor=TIE))
-        # the tie itself: a loop through both slots, over the bundle
-        ax.add_patch(Rectangle((slot_x - 3.1, TIE_SLOT_Y[0] - 1.0), 6.2,
-                               TIE_SLOT_Y[1] - TIE_SLOT_Y[0] + 2.0,
-                               facecolor="none", edgecolor=TIE, lw=2.0,
-                               joinstyle="round"))
+    axes.set_xlim(-half_width - 12, half_width + 34)
+    axes.set_ylim(-16, params.DUCT_HEIGHT + 16)
+    axes.set_aspect("equal")
+    axes.axis("off")
+    axes.set_title(
+        "The plate from behind, fan fitted", fontsize=12.5, weight="bold", color=INK
+    )
 
-    # The fans bolt flush to the plate, so the bundle can only lie against it
-    # in the clear spans between fan bodies. Between them it rides over the
-    # 20 mm-deep frames, which is where a tie cannot reach it -- drawn dashed.
-    spans, blocked = [], []
-    edges = [-PLATE_WIDTH / 2] + [v for f in FAN_CENTRES_X
-                                  for v in (f - FAN_BODY / 2, f + FAN_BODY / 2)] \
-        + [PLATE_WIDTH / 2]
-    for i in range(0, len(edges) - 1):
-        (spans if i % 2 == 0 else blocked).append((edges[i], edges[i + 1]))
 
-    start_x = FAN_CENTRES_X[0] + FAN_BODY / 2
-    for lo, hi in spans:
-        if hi <= start_x:
-            continue
-        lo = max(lo, start_x)
-        joined = sum(1 for f in FAN_CENTRES_X if f + FAN_BODY / 2 <= lo + 0.01)
-        ax.plot([lo, hi], [BUNDLE_Y, BUNDLE_Y], color=CABLE,
-                lw=1.8 + 0.8 * joined, solid_capstyle="round", zorder=6)
-    for lo, hi in blocked:
-        if hi <= start_x:
-            continue
-        joined = sum(1 for f in FAN_CENTRES_X if f + FAN_BODY / 2 <= lo + 0.01)
-        ax.plot([lo, hi], [BUNDLE_Y, BUNDLE_Y], color=CABLE,
-                lw=1.8 + 0.8 * joined, ls=(0, (4, 3)), alpha=.85, zorder=6)
-        ax.text((lo + hi) / 2, BUNDLE_Y + 6.0, "over the frame", ha="center",
-                fontsize=7.5, color=CABLE, style="italic")
+SUPPLIES = (
+    (
+        "12 V wall wart",
+        "12 V, 1 A or better, 5.5/2.1 mm barrel.\n"
+        "Barrel-to-bare-wire pigtail, red to red,\n"
+        "black to black. Nothing else in the rack\n"
+        "has to exist for this to work.",
+    ),
+    (
+        "A PC power supply's Molex",
+        "Yellow is +12 V, the black beside it is\n"
+        "ground. Right if a supply is already in\n"
+        "the rack, and it matches where the fan\n"
+        "most likely came from.",
+    ),
+    (
+        "12 V through a fan controller",
+        "An inline PWM or voltage controller\n"
+        "between supply and fan. One more thing\n"
+        "to mount, and the only option that lets\n"
+        "you trim the noise after the fact.",
+    ),
+)
 
-    # each lead out of the side of its frame, up to the bundle in the span
-    for fan_x in FAN_CENTRES_X:
-        exit_x, exit_y = fan_x + FAN_BODY / 2, FAN_CENTRE_Y - FAN_SCREW_PITCH / 2
-        ax.plot([exit_x, exit_x + 6.0, exit_x + 6.0],
-                [exit_y, exit_y, BUNDLE_Y], color=CABLE, lw=1.7,
-                solid_capstyle="round", zorder=7)
-        ax.plot(exit_x, exit_y, "o", color=CABLE, ms=5, zorder=8)
 
-    ax.add_patch(FancyArrowPatch((95.32, BUNDLE_Y), (112.0, BUNDLE_Y),
-                                 arrowstyle="-|>", mutation_scale=16,
-                                 color=CABLE, lw=4.2, zorder=6))
-    ax.text(116.0, BUNDLE_Y + 5.0, "to the USB supply", ha="right",
-            fontsize=9, color=CABLE, weight="bold")
+def draw_supplies(axes):
+    """Three ways to get 12 V to the plate, none of them wrong."""
+    axes.axis("off")
+    axes.set_xlim(0, 1)
+    axes.set_ylim(0, 1)
+    axes.set_title("Where the 12 V comes from", fontsize=12.5, weight="bold", color=INK)
+    for index, (name, body) in enumerate(SUPPLIES):
+        top = 0.94 - index * 0.315
+        axes.add_patch(
+            Rectangle(
+                (0.02, top - 0.25),
+                0.96,
+                0.26,
+                facecolor="#f4f6f7",
+                edgecolor="#cfd8dc",
+                lw=1.0,
+                transform=axes.transAxes,
+            )
+        )
+        axes.text(
+            0.06, top - 0.03, name, fontsize=11, weight="bold", color=CABLE, va="top"
+        )
+        axes.text(0.06, top - 0.085, body, fontsize=9.5, color=INK, va="top")
 
-    for slot_x in TIE_SLOT_X:
-        ax.text(slot_x, PLATE_Y1 + 2.0, f"{slot_x:+.2f}", ha="center",
-                fontsize=8, color=TIE)
-    ax.text(0, -8.0, "Solid = the bundle lying on the plate, where a tie can hold it.\n"
-                     "Dashed = riding over a fan frame, 20 mm off the plate.",
-            ha="center", fontsize=9, color=INK)
-    ax.text(89.44, -6.5, "strain relief where\nthe bundle leaves",
-            ha="center", fontsize=8.5, color=TIE)
+    axes.text(
+        0.06,
+        -0.02,
+        "A 4-pin fan on plain 12 V runs at full speed: the PWM pin idles high.\n"
+        "Leave the tach pin unconnected unless something is listening to it.",
+        fontsize=9.5,
+        color="#44515c",
+        va="top",
+    )
 
-    ax.set_xlim(-118, 118)
-    ax.set_ylim(-13, 54)
-    ax.set_aspect("equal")
-    ax.axis("off")
-    ax.set_title("Fan plate from behind — fans, tie slots and lead routing",
-                 fontsize=14, weight="bold", color=INK, pad=10)
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+def main():
+    """Draw both panels and write the PNG."""
+    figure, axes = plt.subplots(
+        1, 2, figsize=(17, 8.4), width_ratios=[1.5, 1], facecolor="white"
+    )
+    draw_plate(axes[0])
+    draw_supplies(axes[1])
+    figure.suptitle(
+        f"Wiring one {params.FAN_SIZE} mm fan on a {params.RACK_UNITS}U shared duct",
+        fontsize=14.5,
+        weight="bold",
+        color=INK,
+    )
     figure.tight_layout()
-    figure.savefig(OUT, dpi=130)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(OUT, dpi=130, facecolor="white")
     print("wrote", OUT)
-    print(f"  {len(FAN_CENTRES_X)} fans at x {list(FAN_CENTRES_X)}")
-    print(f"  {len(TIE_SLOT_X)} tie pairs at x {list(TIE_SLOT_X)}, "
-          f"y {TIE_SLOT_Y[0]}/{TIE_SLOT_Y[1]}")
 
 
 if __name__ == "__main__":
-    draw()
+    main()

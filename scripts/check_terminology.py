@@ -24,7 +24,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SEARCH = ("*.md", "*.html", "*.py")
-SKIP_DIRS = {".git", "exports", "cad", "docs/images", "docs/models"}
+# terminology-check: ignore
+# .venv is here because this fork pins its dependencies and installs them in
+# the tree. Walking into it means checking black's own source for the word
+# "bracket", which it uses several hundred times and entirely correctly.
+# terminology-check: resume
+SKIP_DIRS = {
+    ".git",
+    ".venv",
+    "__pycache__",
+    "exports",
+    "cad",
+    "docs/images",
+    "docs/models",
+}
 
 # terminology-check: ignore
 # (retired pattern, the term to use instead, why)
@@ -32,31 +45,57 @@ RULES = [
     # Square/curly/angle brackets and bracket notation are not this project's
     # parts. Excluding them here keeps ALLOWED for genuine one-off exemptions
     # rather than filling it with punctuation.
-    (r"(?<!square )(?<!curly )(?<!angle )(?<!round )\bbrackets?\b(?! notation)",
-     "ear / front ear / rear ear",
-     "the printed parts that bolt to the rack rails are ears"),
-    (r"\bfan bars?\b", "fan plate",
-     "the Fusion body is named Rear Fan Plate and it is a flat 4 mm slab"),
-    (r"\bfan bores?\b", "fan opening",
-     "bore is reserved for the rod, screw, and insert holes"),
-    (r"\bcapture rails?\b", "duct rail",
-     "matches the Fusion feature already named Duct rail"),
-    (r"\bear rails?\b", "duct rail",
-     "matches the Fusion feature already named Duct rail"),
-    (r"fan_bar", "fan_plate",
-     "renamed in the ear/fan plate cleanup; covers rear_fan_bar too"),
-    (r"print_plate_brackets", "print_plate_ears",
-     "renamed in the ear/fan plate cleanup"),
+    (
+        r"(?<!square )(?<!curly )(?<!angle )(?<!round )\bbrackets?\b(?! notation)",
+        "ear / front ear / rear ear",
+        "the printed parts that bolt to the rack rails are ears",
+    ),
+    (
+        r"\bfan bars?\b",
+        "fan plate",
+        "the Fusion body is named Rear Fan Plate and it is a flat 4 mm slab",
+    ),
+    (
+        r"\bfan bores?\b",
+        "fan opening",
+        "bore is reserved for the rod, screw, and insert holes",
+    ),
+    (
+        r"\bcapture rails?\b",
+        "duct rail",
+        "matches the Fusion feature already named Duct rail",
+    ),
+    (
+        r"\bear rails?\b",
+        "duct rail",
+        "matches the Fusion feature already named Duct rail",
+    ),
+    (
+        r"fan_bar",
+        "fan_plate",
+        "renamed in the ear/fan plate cleanup; covers rear_fan_bar too",
+    ),
+    (
+        r"print_plate_brackets",
+        "print_plate_ears",
+        "renamed in the ear/fan plate cleanup",
+    ),
 ]
 
 # (path, substring that must be on the line, why it is allowed to stay)
 ALLOWED = [
-    ("docs/index.html", "which is what I call the brackets",
-     "a gloss that introduces the term 'ear' to a reader who expects "
-     "'bracket'. It defines the vocabulary rather than drifting from it."),
-    ("scripts/build_rack_mockup.py", "Brackets for Speaker Stand v2",
-     "the exact name of a legacy Fusion document that grab_bodies() opens. "
-     "Renaming the file would not rename the document inside Fusion."),
+    (
+        "docs/index.html",
+        "which is what I call the brackets",
+        "a gloss that introduces the term 'ear' to a reader who expects "
+        "'bracket'. It defines the vocabulary rather than drifting from it.",
+    ),
+    (
+        "scripts/build_rack_mockup.py",
+        "Brackets for Speaker Stand v2",
+        "the exact name of a legacy Fusion document that grab_bodies() opens. "
+        "Renaming the file would not rename the document inside Fusion.",
+    ),
 ]
 
 # Both this file and CLAUDE.md have to name the retired terms to do their job,
@@ -69,6 +108,7 @@ IGNORE_RESUME = "terminology-check: resume"
 
 
 def allowed(rel_path, line):
+    """True if this exact line is on the exemption list."""
     for path, needle, _ in ALLOWED:
         if rel_path == path and needle in line:
             return True
@@ -76,6 +116,7 @@ def allowed(rel_path, line):
 
 
 def files():
+    """Every checkable file in the tree, skipping generated and vendored ones."""
     for pattern in SEARCH:
         for path in sorted(ROOT.rglob(pattern)):
             rel = path.relative_to(ROOT).as_posix()
@@ -85,6 +126,7 @@ def files():
 
 
 def main():
+    """Report every retired term found; exit nonzero if there are any."""
     hits = []
     for path, rel in files():
         try:
@@ -116,8 +158,10 @@ def main():
         print(f"  {rel}:{number}")
         print(f"    {excerpt}")
         print(f"    use '{replacement}' -- {why}\n")
-    print("If one of these is genuinely correct where it sits, add it to "
-          "ALLOWED in this script with a note saying why.")
+    print(
+        "If one of these is genuinely correct where it sits, add it to "
+        "ALLOWED in this script with a note saying why."
+    )
     return 1
 
 
