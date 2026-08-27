@@ -8,10 +8,11 @@ a vanilla 3MF that PrusaSlicer opens as separate objects:
     python scripts/build_print_plate.py --variant nuttrap
     python scripts/build_print_plate.py --variant selftap
 
-Two plates, and a full rack needs three of the first and one of the second:
+Three plates, and a full rack needs three of the first and one of each other:
 
 - `ears_<variant>`, one rack unit's worth of ears. Print it once per laptop.
 - `shared_fan_plate`, the whole duct in one part. Print it once.
+- `fan_guard`, optional, and on its own plate because it is optional.
 
 The plate does not fit a Prusa Mini and never will -- it is 222 mm across a
 180 mm bed -- so asking for it on that bed is refused by name rather than
@@ -89,6 +90,7 @@ def build_parts(variant):
     front = trimesh.load_mesh(EXPORTS / "front_ear.stl")
     rear = trimesh.load_mesh(EXPORTS / REAR_EAR_FILES[variant])
     plate = trimesh.load_mesh(EXPORTS / "shared_fan_plate.stl")
+    guard = trimesh.load_mesh(EXPORTS / "fan_guard.stl")
 
     return {
         # Printed plate-down, so the first layer is the full solid rectangle
@@ -97,6 +99,11 @@ def build_parts(variant):
         # one part rather than a quick one for three.
         "shared_fan_plate": [
             ("shared_fan_plate", flipped(plate)),
+        ],
+        # Optional, and on its own plate because it is optional. Flat, no
+        # support, fits any bed here.
+        "fan_guard": [
+            ("fan_guard", guard.copy()),
         ],
         f"ears_{variant}": [
             ("rear_ear_R", rear.copy()),

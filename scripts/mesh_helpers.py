@@ -31,6 +31,28 @@ def cylinder(centre_x, centre_y, diameter, z_range, sections=CYLINDER_SECTIONS):
     return mesh
 
 
+def conical_ring(inner_radius, outer_radius, z_low, z_high, sections=CYLINDER_SECTIONS):
+    """A ring of revolution whose bore tapers, for cutting a chamfer.
+
+    The profile is a triangle in (radius, height): wide at `z_high`, narrow at
+    `z_low`. Subtracted from a plate it leaves a conical inlet -- the radius
+    grows with z, so on a printer that face is a receding staircase rather than
+    an overhang, and needs no support.
+    """
+    profile = np.array(
+        [
+            [inner_radius, z_low],
+            [outer_radius, z_high],
+            [inner_radius, z_high],
+            [inner_radius, z_low],
+        ]
+    )
+    ring = trimesh.creation.revolve(profile, sections=sections)
+    if ring.volume < 0:  # the profile's winding decides which way it faces
+        ring.invert()
+    return ring
+
+
 def mirrored_x(mesh):
     """Mirror across x, fixing the winding the reflection inverts.
 

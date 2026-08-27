@@ -82,6 +82,20 @@ FAN_SCREW_DIA = 4.5  # clearance for M4 or #6-32, the two the fans ship with
 FAN_CENTRE_X = 0.0
 FAN_CENTRE_Y = DUCT_HEIGHT / 2
 
+# An inlet chamfer on the duct side of the opening. A sharp-edged hole in a
+# 4 mm plate makes the flow separate at the lip, so the throat that actually
+# passes air is smaller than the one that was cut. That costs more here than it
+# would have upstream, because check_rear_assembly measures the opening as the
+# restriction -- 10,207 mm2 against 13,649 of plenum. Easing the inlet is the
+# cheapest thing that helps.
+#
+# It is free to print. The plate goes on the bed rear-face-down, so the duct
+# side faces up and the hole widens as it rises: every layer sits fully on the
+# one below, and none of it is an overhang. It costs nothing on the fan side
+# either -- the chamfer stops 1 mm short of the rear face, so the land the fan
+# frame seals against is untouched at its full 3 mm width.
+FAN_INLET_CHAMFER = 3.0
+
 # --- Zip-tie slots --------------------------------------------------------
 # One lead now instead of nine, so one run and two tie pairs: the first catches
 # it off the fan frame, the second is strain relief where it leaves the plate.
@@ -137,6 +151,11 @@ def check_fits():
     corner_radius = (FAN_SCREW_PITCH / 2) * 2**0.5
     if FAN_OPENING_DIA / 2 > corner_radius - FAN_SCREW_DIA / 2:
         raise ValueError("fan opening runs into the fan's corner screw holes")
+    if FAN_INLET_CHAMFER >= PLATE_THICKNESS:
+        raise ValueError("the inlet chamfer would break through the fan's sealing face")
+    chamfered_dia = FAN_OPENING_DIA + 2 * FAN_INLET_CHAMFER
+    if chamfered_dia > clear_height:
+        raise ValueError("the chamfered opening would cut into the duct walls")
     if FAN_FRAME / 2 > BOSS_X - HEAD_CBORE_DIA / 2:
         raise ValueError("fan frame overlaps the M3 mounting bosses")
     return clear_height

@@ -24,6 +24,7 @@ import trimesh
 
 import shared_duct_params as params
 from mesh_helpers import box as _box
+from mesh_helpers import conical_ring
 from mesh_helpers import cylinder as _cylinder
 
 EXPORTS = Path("exports")
@@ -74,6 +75,19 @@ def build_plate(wall_overhang=0.0):
             params.FAN_CENTRE_X, params.FAN_CENTRE_Y, params.FAN_OPENING_DIA, through
         )
     ]
+
+    # The inlet chamfer, on the duct side only. It starts at the duct face
+    # (z = 0) and dies out 3 mm in, leaving the last 1 mm of the bore straight
+    # so the fan still seals against an untouched land on the rear face.
+    if params.FAN_INLET_CHAMFER > 0:
+        chamfer = conical_ring(
+            inner_radius=params.FAN_OPENING_DIA / 2,
+            outer_radius=params.FAN_OPENING_DIA / 2 + params.FAN_INLET_CHAMFER,
+            z_low=params.FAN_INLET_CHAMFER,
+            z_high=0.0,
+        )
+        chamfer.apply_translation([params.FAN_CENTRE_X, params.FAN_CENTRE_Y, 0.0])
+        cuts.append(chamfer)
     cuts += [
         _cylinder(screw_x, screw_y, params.FAN_SCREW_DIA, through)
         for screw_x, screw_y in params.fan_screw_centres()

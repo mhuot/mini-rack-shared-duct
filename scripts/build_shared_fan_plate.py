@@ -53,7 +53,7 @@ import shared_duct_params as params  # noqa: E402  # pylint: disable=wrong-impor
 MM = 0.1  # Fusion API lengths are in cm
 
 
-def run(_context: str):  # pylint: disable=too-many-locals
+def run(_context: str):  # pylint: disable=too-many-locals,too-many-statements
     """Build the plate, its duct walls and every opening, then report."""
     params.check_fits()
 
@@ -168,7 +168,50 @@ def run(_context: str):  # pylint: disable=too-many-locals
             )
     cut_through(cbore_sketch, "Head counterbores", -params.HEAD_CBORE_DEPTH)
 
+    # 6. The inlet chamfer, on the duct face only. Done as a real chamfer
+    #    feature rather than a modelled cut, so it stays editable like
+    #    everything else here.
+    _chamfer_inlet(root, body)
+
     _report(app, doc, body)
+
+
+def _chamfer_inlet(root, body):
+    """Ease the duct-side lip of the fan opening.
+
+    The edge is found by geometry rather than by index: a circle of the
+    opening's radius sitting on the duct face at z = 0. Picking edges by index
+    is how a script quietly chamfers the wrong thing after an unrelated edit.
+    """
+    if params.FAN_INLET_CHAMFER <= 0:
+        return None
+
+    wanted_radius = params.FAN_OPENING_DIA / 2 * MM
+    edges = adsk.core.ObjectCollection.create()
+    for index in range(body.edges.count):
+        edge = body.edges.item(index)
+        circle = adsk.core.Circle3D.cast(edge.geometry)
+        if circle is None:
+            continue
+        if abs(circle.radius - wanted_radius) > 0.01 * MM:
+            continue
+        if abs(circle.center.z) > 0.01 * MM:  # the duct face, not the rear one
+            continue
+        edges.add(edge)
+
+    if edges.count != 1:
+        raise RuntimeError(
+            f"expected one fan-opening edge on the duct face, found {edges.count}"
+        )
+
+    chamfers = root.features.chamferFeatures
+    definition = chamfers.createInput2()
+    definition.chamferEdgeSets.addEqualDistanceChamferEdgeSet(
+        edges, adsk.core.ValueInput.createByReal(params.FAN_INLET_CHAMFER * MM), False
+    )
+    feature = chamfers.add(definition)
+    feature.name = "Inlet chamfer"
+    return feature
 
 
 def _report(app, doc, body):
