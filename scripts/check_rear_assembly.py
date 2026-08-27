@@ -4,7 +4,7 @@ Run against the exported STLs, not Fusion:
 
     python scripts/check_rear_assembly.py
 
-Two questions get answered.
+Three questions get answered.
 
 Does it assemble? Every pair of parts is intersected exactly, so any overlap
 shows up as a positive volume rather than as a surprise on the bed.
@@ -16,92 +16,92 @@ region reaches the edge of the frame, air is getting out somewhere it should
 not. Between z~10 and z~60 the parts are prismatic, so a section there holds
 for that whole stretch rather than being a spot check.
 
-The panel has play in its duct rail slot, so the seal is tested with the panel
-resting on each wall and floating between them.
+Is the fan opening big enough? The same cross-section measures the plenum's
+free area with the laptops in it, which is the number the opening has to be
+compared against. Upstream did this arithmetically from nominal dimensions;
+measuring it off the actual meshes catches the case where a part changed and
+the prose did not.
+
+What replaced the old panel-seating sweep: the modular duct panels had play in
+their rail slots, so the seal had to hold with a panel against either wall.
+The one-piece plate has no such play. What it has instead is six ears stacked
+three high, and the model butts them at exactly 44.45 mm. A real rack's rail
+holes are not perfect, so the gap sweep below opens a deliberate seam between
+stacked ears and reports what leaks -- the one failure this fork can have that
+upstream could not.
 
 Requires trimesh, numpy, scipy and manifold3d.
 """
 
 import itertools
 import math
-from pathlib import Path
 
 import numpy as np
 import trimesh
 from scipy import ndimage
 
-EXPORTS = Path("exports")
-
-EAR_OFFSET_X = 110.32      # ear local x=-15 (inner face) lands at global 95.32
-EAR_DEPTH = 72.0           # rail plane to pad face
-RACK_UNIT = 44.45
-EAR_WALL = 2.0             # duct rail wall, build_rear_ear_v2.py
-EAR_SLOT_HEIGHT = 2.4      # duct rail slot, build_rear_ear_v2.py
-PANEL_THICKNESS = 2.2
-GROOVE_FLOOR_X = 97.32     # ear groove floor, per side
-FAN_OPENING_DIA = 39.0
-FAN_COUNT = 3
+import build_shared_fan_plate_mesh as plate_builder
+import shared_duct_params as params
+from mesh_helpers import box, mirrored_x
 
 FRAME_X = (-135.0, 135.0)
-FRAME_Y = (-2.0, 47.0)
-SCAN_STEP = 0.02           # resolves a 0.1 mm clearance five times over
+FRAME_Y = (-2.0, params.DUCT_HEIGHT + 4.0)
+SCAN_STEP = 0.02  # resolves a 0.1 mm clearance five times over
 
-SEATINGS = (
-    ("resting on the lower wall (gravity)", 0.0),
-    ("floating centred in the slot", (EAR_SLOT_HEIGHT - PANEL_THICKNESS) / 2),
-    ("pulled against the upper wall (suction)", EAR_SLOT_HEIGHT - PANEL_THICKNESS),
-)
+# The laptops, only so the free-area figure is the real one. Same numbers as
+# render_shared_duct.py; they are reference bodies, not parts.
+LAPTOP_SEAT_Y = 10.22
+LAPTOP_THICKNESS = {"macbook": 15.5, "surface": 17.5}
+LAPTOP_WIDTH = {"macbook": 221.2, "surface": 220.0}
+STACK = ("macbook", "surface", "macbook")
 
+# How far apart stacked ears might sit if the rack's rail holes are not exact.
+EAR_GAPS = (0.0, 0.2, 0.5)
 
-def mirrored_x(mesh):
-    out = mesh.copy()
-    out.apply_transform(np.diag([-1.0, 1.0, 1.0, 1.0]))
-    if out.volume < 0:
-        out.invert()
-    return out
-
-
-def moved_to(mesh, x_min=None, y_min=None, z_min=None):
-    low = mesh.bounds[0]
-    shift = [0.0, 0.0, 0.0]
-    for axis, target in enumerate((x_min, y_min, z_min)):
-        if target is not None:
-            shift[axis] = target - low[axis]
-    mesh.apply_translation(shift)
-    return mesh
+# Each duct wall stops this far short of the ear's groove floor, per end, so it
+# can slide into the duct rail at all. It is the one deliberate hole in the
+# duct, and the reason the as-built seal test reports a leak.
+SLIDE_CLEARANCE = params.GROOVE_FLOOR_X - params.WALL_HALF_WIDTH
 
 
-def assemble(panel_offset):
-    """Place every rear part in the rack frame, panels offset in their slots."""
+def assemble(ear_gap=0.0, with_laptops=False, seal_walls=False):
+    """Place every rear part in the rack frame.
+
+    `ear_gap` opens a seam between vertically stacked ears, standing in for a
+    rack whose rail holes are not exactly one rack unit apart. `seal_walls`
+    swaps in a plate whose duct walls run all the way to the groove floor,
+    which is not buildable -- it is how the tests separate "leaks through the
+    slide clearance" from "leaks through a face somebody forgot".
+    """
     parts = {}
 
-    ear = trimesh.load_mesh(EXPORTS / "rear_ear_v2.stl")
-    right_ear = ear.copy()
-    right_ear.apply_translation([EAR_OFFSET_X, 0.0, 0.0])
-    parts["ear_right"] = right_ear
-    left_ear = mirrored_x(ear)
-    left_ear.apply_translation([-EAR_OFFSET_X, 0.0, 0.0])
-    parts["ear_left"] = left_ear
+    ear = trimesh.load_mesh("exports/rear_ear_v2.stl")
+    mirrored = mirrored_x(ear)
+    for unit_index in range(params.RACK_UNITS):
+        unit_y = unit_index * (params.RACK_UNIT + ear_gap)
+        for side, source, side_x in (
+            ("right", ear, params.EAR_OFFSET_X),
+            ("left", mirrored, -params.EAR_OFFSET_X),
+        ):
+            placed = source.copy()
+            placed.apply_translation([side_x, unit_y, 0.0])
+            parts[f"ear_{side}_u{unit_index + 1}"] = placed
 
-    # The panel prints flat, x = width, y = length, z = thickness. Stand it up
-    # so its length runs down the duct and its thickness is the rack vertical.
-    panel = trimesh.load_mesh(EXPORTS / "duct_panel.stl")
-    panel.apply_transform(trimesh.transformations.rotation_matrix(
-        math.pi / 2, [1.0, 0.0, 0.0]))
-    panel_width = panel.extents[0]
-    bottom = panel.copy()
-    moved_to(bottom, x_min=-panel_width / 2,
-             y_min=EAR_WALL + panel_offset, z_min=0.0)
-    parts["duct_panel_bottom"] = bottom
-    top = panel.copy()
-    moved_to(top, x_min=-panel_width / 2,
-             y_min=RACK_UNIT - EAR_WALL - EAR_SLOT_HEIGHT + panel_offset,
-             z_min=0.0)
-    parts["duct_panel_top"] = top
+    if seal_walls:
+        plate = plate_builder.build_plate(wall_overhang=SLIDE_CLEARANCE)
+    else:
+        plate = trimesh.load_mesh("exports/shared_fan_plate.stl")
+    plate.apply_translation([0.0, 0.0, params.EAR_DEPTH])
+    parts["shared_fan_plate"] = plate
 
-    plate = trimesh.load_mesh(EXPORTS / "rear_fan_plate.stl")
-    plate.apply_translation([0.0, 0.0, EAR_DEPTH])
-    parts["fan_plate"] = plate
+    if with_laptops:
+        for unit_index, name in enumerate(STACK):
+            unit_y = unit_index * (params.RACK_UNIT + ear_gap) + LAPTOP_SEAT_Y
+            parts[f"laptop_u{unit_index + 1}"] = box(
+                (-LAPTOP_WIDTH[name] / 2, LAPTOP_WIDTH[name] / 2),
+                (unit_y, unit_y + LAPTOP_THICKNESS[name]),
+                (-10.0, params.EAR_DEPTH - 7.0),
+            )
     return parts
 
 
@@ -109,9 +109,11 @@ def solid_spans(triangles, y, z):
     """Exact solid intervals along +x through a mesh at (y, z)."""
     origin = np.array([FRAME_X[0] - 50.0, y, z])
     direction = np.array([1.0, 0.0, 0.0])
-    corner, edge_a, edge_b = (triangles[:, 0],
-                              triangles[:, 1] - triangles[:, 0],
-                              triangles[:, 2] - triangles[:, 0])
+    corner, edge_a, edge_b = (
+        triangles[:, 0],
+        triangles[:, 1] - triangles[:, 0],
+        triangles[:, 2] - triangles[:, 0],
+    )
     pvec = np.cross(direction, edge_b)
     determinant = np.einsum("ij,ij->i", edge_a, pvec)
     usable = np.abs(determinant) > 1e-12
@@ -121,11 +123,11 @@ def solid_spans(triangles, y, z):
     qvec = np.cross(to_corner, edge_a)
     bary_v = np.einsum("j,ij->i", direction, qvec) * inverse
     distance = np.einsum("ij,ij->i", edge_b, qvec) * inverse
-    hit = (usable & (bary_u >= 0) & (bary_v >= 0)
-           & (bary_u + bary_v <= 1) & (distance > 0))
+    hit = (
+        usable & (bary_u >= 0) & (bary_v >= 0) & (bary_u + bary_v <= 1) & (distance > 0)
+    )
     crossings = np.sort(origin[0] + distance[hit])
-    return [(crossings[i], crossings[i + 1])
-            for i in range(0, len(crossings) - 1, 2)]
+    return [(crossings[i], crossings[i + 1]) for i in range(0, len(crossings) - 1, 2)]
 
 
 def label_air(parts, z):
@@ -141,33 +143,37 @@ def label_air(parts, z):
                 low = int(np.ceil((start - FRAME_X[0]) / SCAN_STEP))
                 high = int(np.floor((end - FRAME_X[0]) / SCAN_STEP))
                 if high >= low:
-                    solid[row_index, low:high + 1] = True
+                    solid[row_index, low : high + 1] = True
     labels, _ = ndimage.label(~solid)
     return labels
 
 
 def region_at(labels, x, y):
-    return labels[int(round((y - FRAME_Y[0]) / SCAN_STEP)),
-                  int(round((x - FRAME_X[0]) / SCAN_STEP))]
+    """The air region id at a point, in millimetres."""
+    return labels[
+        int(round((y - FRAME_Y[0]) / SCAN_STEP)),
+        int(round((x - FRAME_X[0]) / SCAN_STEP)),
+    ]
 
 
 def reaches_ambient(labels, region):
-    edges = (set(labels[0, :]) | set(labels[-1, :])
-             | set(labels[:, 0]) | set(labels[:, -1]))
+    """True if this air region touches the edge of the scanned frame."""
+    edges = (
+        set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
+    )
     return region in edges
 
 
 def report_interference(parts):
+    """Boolean every pair of parts against each other."""
     print("=== interference (exact boolean, any volume > 0 is a clash) ===")
     clashes = 0
-    for (name_a, part_a), (name_b, part_b) in itertools.combinations(
-            parts.items(), 2):
+    for (name_a, part_a), (name_b, part_b) in itertools.combinations(parts.items(), 2):
         low_a, high_a = part_a.bounds
         low_b, high_b = part_b.bounds
         if np.any(high_a < low_b) or np.any(high_b < low_a):
             continue
-        overlap = trimesh.boolean.intersection([part_a, part_b],
-                                               engine="manifold")
+        overlap = trimesh.boolean.intersection([part_a, part_b], engine="manifold")
         volume = 0.0 if overlap is None or overlap.is_empty else overlap.volume
         if volume > 1e-6:
             clashes += 1
@@ -177,42 +183,93 @@ def report_interference(parts):
 
 
 def report_seal():
-    print("\n=== is the duct sealed at mid-depth? ===")
-    leaking = []
-    for description, offset in SEATINGS:
-        labels = label_air(assemble(offset), 36.0)
-        duct = region_at(labels, 0.0, 22.0)
-        area = int((labels == duct).sum()) * SCAN_STEP ** 2
+    """Sample the prismatic stretch of the duct, as built and interference-fit.
+
+    As built the duct leaks, and it is supposed to: each wall end stops 0.10 mm
+    short of the ear's groove floor so the plate can be assembled at all. What
+    matters is that this is the *only* path out, so the same section is run
+    against a plate whose walls reach the groove floor. If that one seals, the
+    duct has no hole in it beyond the clearance; if it still leaks, something
+    is genuinely open and the number below says how much.
+    """
+    print("\n=== is the shared duct sealed? ===")
+    unexplained = []
+    for label, seal_walls in (
+        (f"as built, {SLIDE_CLEARANCE:.2f} mm slide clearance", False),
+        ("walls run out to the groove floor", True),
+    ):
+        for depth in (20.0, 36.0, 55.0):
+            labels = label_air(assemble(seal_walls=seal_walls), depth)
+            duct = region_at(labels, 0.0, params.FAN_CENTRE_Y)
+            area = int((labels == duct).sum()) * SCAN_STEP**2
+            leaks = reaches_ambient(labels, duct)
+            if leaks and seal_walls:
+                unexplained.append(f"z={depth:.0f}")
+            print(
+                f"  {label:38s} z={depth:5.1f}  plenum {area:9.1f} mm2  "
+                f"{'open' if leaks else 'sealed'}"
+            )
+    return unexplained
+
+
+def report_leak_area():
+    """How much hole the slide clearance actually is."""
+    ends = 2 * len(params.WALL_BANDS)  # two walls, two ends each
+    leak = SLIDE_CLEARANCE * params.WALL_THICKNESS * ends
+    opening = math.pi * (params.FAN_OPENING_DIA / 2) ** 2
+    print("\n=== the slide clearance, as a hole ===")
+    print(f"  wall end to ear groove floor  : {SLIDE_CLEARANCE:8.2f} mm")
+    print(f"  leak area, {ends} wall ends        : {leak:8.2f} mm2")
+    print(f"  as a share of the fan opening : {leak / opening * 100:8.3f}%")
+
+
+def report_ear_gaps():
+    """Six ears stacked three high only seal if they actually touch.
+
+    Run against the interference-fit walls so the slide clearance does not mask
+    the thing being measured: what a rack with imperfect rail spacing costs.
+    """
+    print("\n=== if the rack's rail holes are not exactly one unit apart ===")
+    for gap in EAR_GAPS:
+        labels = label_air(assemble(ear_gap=gap, seal_walls=True), 36.0)
+        duct = region_at(labels, 0.0, params.FAN_CENTRE_Y + gap)
         leaks = reaches_ambient(labels, duct)
-        if leaks:
-            leaking.append(description)
-        print(f"  {description:42s} duct {area:8.1f} mm2  "
-              f"{'LEAKS' if leaks else 'sealed'}")
-    return leaking
+        print(
+            f"  {gap:.1f} mm between stacked ears   "
+            f"{'OPEN to ambient' if leaks else 'still sealed'}"
+        )
 
 
-def report_throat():
-    end_clearance = GROOVE_FLOOR_X - trimesh.load_mesh(
-        EXPORTS / "duct_panel.stl").extents[0] / 2
-    throat = end_clearance * EAR_SLOT_HEIGHT * 4  # 2 panels x 2 ends
-    fan_area = FAN_COUNT * math.pi * (FAN_OPENING_DIA / 2) ** 2
-    print("\n=== worst case, a panel clear of both slot walls ===")
-    print(f"  panel end to ear groove floor : {end_clearance:.2f} mm")
-    print(f"  throttling area, 4 panel ends : {throat:.2f} mm2")
-    print(f"  four fan openings             : {fan_area:.0f} mm2")
-    print(f"  leak as a share of fan area   : {throat / fan_area * 100:.3f}%")
+def report_free_area():
+    """The number the fan opening has to be judged against."""
+    labels = label_air(assemble(with_laptops=True), 36.0)
+    duct = region_at(labels, 0.0, params.FAN_CENTRE_Y)
+    free_area = int((labels == duct).sum()) * SCAN_STEP**2
+    opening = math.pi * (params.FAN_OPENING_DIA / 2) ** 2
+    print("\n=== free area, measured with the laptops in ===")
+    print(f"  plenum free area              : {free_area:8.0f} mm2")
+    print(
+        f"  fan opening O{params.FAN_OPENING_DIA:.0f}              : {opening:8.0f} mm2"
+    )
+    print(f"  opening as a share of the duct: {opening / free_area * 100:8.1f}%")
+    if opening < free_area:
+        print("  the opening is the restriction, not the duct")
+    else:
+        print("  the duct is the restriction, not the opening")
 
 
 def main():
-    clashes = report_interference(assemble(0.0))
-    leaking = report_seal()
-    report_throat()
+    """Run every check and print a verdict."""
+    clashes = report_interference(assemble())
+    unexplained = report_seal()
+    report_leak_area()
+    report_ear_gaps()
+    report_free_area()
     print("\n=== verdict ===")
     print(f"  assembles without interference : {'no' if clashes else 'yes'}")
-    print(f"  seals with a panel against either wall : "
-          f"{'no' if len(leaking) > 1 else 'yes'}")
-    if leaking:
-        print("  leaks when: " + "; ".join(leaking))
+    print("  no leak beyond the slide clearance : " f"{'no' if unexplained else 'yes'}")
+    if unexplained:
+        print("  unexplained leak at: " + ", ".join(unexplained))
 
 
 if __name__ == "__main__":

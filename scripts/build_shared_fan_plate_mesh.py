@@ -35,13 +35,18 @@ STL_PATH = EXPORTS / "shared_fan_plate.stl"
 OVERSHOOT = 1.0
 
 
-def build_plate():
+def build_plate(wall_overhang=0.0):
     """The plate and its two duct walls, less every opening.
 
     Built in the plate's own frame, the same one the Fusion script uses: the
     plate occupies z 0..4 and the walls grow forward into negative z, so the
     front face -- the one that faces into the rack -- is z = 0. The assembly
     puts it in the rack by translating +EAR_DEPTH in z.
+
+    `wall_overhang` widens each duct wall by that much at each end. It is zero
+    for the real part, which needs the clearance to slide into the duct rails.
+    check_rear_assembly.py builds an interference-fit copy with it, to prove
+    that the slide clearance is the only way air leaves the duct.
     """
     params.check_fits()
 
@@ -52,9 +57,10 @@ def build_plate():
         (0.0, params.PLATE_THICKNESS),
     )
 
+    wall_half_width = params.WALL_HALF_WIDTH + wall_overhang
     walls = [
         _box(
-            (-params.WALL_HALF_WIDTH, params.WALL_HALF_WIDTH),
+            (-wall_half_width, wall_half_width),
             band,
             (-params.WALL_DEPTH, 0.0),
         )
