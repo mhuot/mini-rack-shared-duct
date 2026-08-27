@@ -149,6 +149,83 @@ def check_rods(parts, failures):
     )
 
 
+def check_rasteriser(failures):
+    """The depth test resolves what triangle sorting could not.
+
+    Three properties, each one a case the painter's algorithm got wrong:
+
+    Order independence -- a far triangle drawn after a near one must not paint
+    over it. Sorting by centroid gets this right only when the centroid order
+    happens to match the pixel order.
+
+    Interpenetration -- two triangles that pass through each other have no
+    correct draw order at all. Each has to win the pixels where it is nearer,
+    which is only expressible per pixel.
+
+    Transparency -- a clear triangle in front of an opaque one tints it rather
+    than replacing it, and must not write depth.
+    """
+    size = 8
+    red = np.array([1.0, 0.0, 0.0, 1.0])
+    green = np.array([0.0, 1.0, 0.0, 1.0])
+    corner = (1, 1)
+
+    def flat(depth_value):
+        return np.array(
+            [
+                [0.0, 0.0, depth_value],
+                [size, 0.0, depth_value],
+                [0.0, size, depth_value],
+            ]
+        )
+
+    for label, first, second, first_colour in (
+        ("far drawn after near", flat(1.0), flat(5.0), red),
+        ("near drawn after far", flat(5.0), flat(1.0), green),
+    ):
+        image = np.tile(render.BACKGROUND, (size, size, 1))
+        depth = np.full((size, size), np.inf)
+        render.fill(first, image, depth, red, 1.0)
+        render.fill(second, image, depth, green, 1.0)
+        failures.check(
+            (
+                np.allclose(image[corner], first_colour[:3])
+                if label.startswith("far")
+                else np.allclose(image[corner], green[:3])
+            ),
+            f"{label}: the nearer triangle did not win the pixel",
+        )
+
+    # A triangle whose depth ramps across x, crossed by a flat one at 5.
+    image = np.tile(render.BACKGROUND, (size, size, 1))
+    depth = np.full((size, size), np.inf)
+    ramp = np.array([[0.0, 0.0, 0.0], [size, 0.0, 10.0], [0.0, size, 0.0]])
+    render.fill(ramp, image, depth, red, 1.0)
+    render.fill(flat(5.0), image, depth, green, 1.0)
+    left_is_red = np.allclose(image[1, 1], red[:3])
+    right_is_green = np.allclose(image[1, size - 2], green[:3])
+    failures.check(
+        left_is_red and right_is_green,
+        "interpenetrating triangles did not each win the pixels where they "
+        f"are nearer (left={image[1, 1]}, right={image[1, size - 2]})",
+    )
+
+    # A clear triangle in front of an opaque one tints without replacing it.
+    image = np.tile(render.BACKGROUND, (size, size, 1))
+    depth = np.full((size, size), np.inf)
+    render.fill(flat(5.0), image, depth, red, 1.0)
+    render.fill(flat(1.0), image, depth, green, 0.5)
+    tinted = image[corner]
+    failures.check(
+        np.allclose(tinted, [0.5, 0.5, 0.0]),
+        f"a transparent triangle did not blend over the opaque one: {tinted}",
+    )
+    failures.check(
+        np.isclose(depth[corner], 5.0),
+        f"a transparent triangle wrote to the depth buffer: {depth[corner]}",
+    )
+
+
 def _by_material(parts):
     """Group parts by material, with the two laptop colours merged."""
     groups = {}
@@ -336,6 +413,7 @@ def main():
         ("cabinet", lambda f: check_cabinet(parts, f)),
         ("duct placement", lambda f: check_duct_placement(parts, f)),
         ("view directions", check_views),
+        ("rasteriser", check_rasteriser),
     ):
         failures = Failures()
         runner(failures)

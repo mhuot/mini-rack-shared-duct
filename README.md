@@ -118,6 +118,31 @@ So `python scripts/check_render.py` asserts the things the renders claim:
 The caption rule is the interesting one. A caption is a claim, and this is the
 only thing in the repo that checks a claim made in words against geometry.
 
+### Why the renderer is a z-buffer
+
+It started as a painter's algorithm: project every triangle, sort by centroid
+depth, paint far to near. That is a heuristic, and it fails on exactly the
+geometry this rack is made of. Two triangles that interpenetrate have no
+correct order at all; nor does a large one crossing a small one. The acrylic
+panels seamed against the frame and the plate speckled where the fan met it.
+
+It is now a per-pixel depth test. Barycentric coordinates are evaluated over
+each triangle's pixel bounding box with three edge functions, depth
+interpolates across them — linearly, which is exact under an orthographic
+projection — and a pixel is written only where it is nearer than what is
+already there. There is no ordering left to get wrong. Rendering is
+supersampled 2× and box-filtered down, and the whole thing takes about a
+second per view.
+
+Transparency is the one thing a depth buffer cannot do alone, so the opaque
+geometry goes down first and the clear faces composite over it afterwards,
+far to near, testing depth without writing it.
+
+`check_render.py` tests the rasteriser directly against the three cases the
+sort got wrong: a far triangle drawn after a near one, two triangles that
+interpenetrate, and a clear triangle over an opaque one. Breaking the depth
+test makes those fail.
+
 ### What the interference check found immediately
 
 The cabinet's clear opening was modelled at **221.0 mm** between rails, and a
@@ -240,7 +265,7 @@ The ears come out of Fusion 360 and have to: they are full of tangency and relie
 - [`build_fan_guard_mesh.py`](scripts/build_fan_guard_mesh.py) — the optional guard.
 - [`check_rear_assembly.py`](scripts/check_rear_assembly.py) — interference, seal, ear-seam and free-area checks.
 - [`build_print_plate.py`](scripts/build_print_plate.py) — the 3MF print plates.
-- [`render_shared_duct.py`](scripts/render_shared_duct.py) — the renders and the GLB on this page, drawn from the same meshes the checks run against. A painter's-algorithm renderer in about eighty lines; no GL context, no display.
+- [`render_shared_duct.py`](scripts/render_shared_duct.py) — the renders and the GLB on this page, drawn from the same meshes the checks run against. A z-buffer rasteriser in about a hundred lines; no GL context, no display, nothing beyond numpy.
 - [`check_render.py`](scripts/check_render.py) — asserts that the rack in the renders is the rack in the design. See [Checking the renders](#checking-the-renders).
 - [`build_depth_diagram.py`](scripts/build_depth_diagram.py), [`build_wiring_diagram.py`](scripts/build_wiring_diagram.py) — the two diagrams.
 - [`check_terminology.py`](scripts/check_terminology.py) — every part has one name; this fails if a retired one creeps back in.

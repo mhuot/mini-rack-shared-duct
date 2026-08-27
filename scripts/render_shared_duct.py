@@ -28,7 +28,6 @@ matplotlib.use("Agg")  # pylint: disable=wrong-import-position
 import matplotlib.pyplot as plt  # noqa: E402  (must follow the Agg switch)
 import numpy as np  # noqa: E402
 import trimesh  # noqa: E402
-from matplotlib.collections import PolyCollection  # noqa: E402
 
 import shared_duct_params as params  # noqa: E402
 from mesh_helpers import box as box_mesh  # noqa: E402
@@ -351,44 +350,138 @@ def camera(azimuth_deg, elevation_deg):
     return right, up, forward
 
 
-def draw(axes, parts, azimuth_deg, elevation_deg, title):
-    """Paint the assembly into `axes` from one orthographic viewpoint."""
-    right, up, forward = camera(azimuth_deg, elevation_deg)
+VIEW_PIXELS = (760, 560)
+SUPERSAMPLE = 2
+BACKGROUND = np.array([1.0, 1.0, 1.0])
+VIEW_MARGIN = 0.04
 
-    polygons, facecolours = [], []
+
+def project(parts, right, up, forward):
+    """Project every front-facing triangle to (u, v, depth), with its colour.
+
+    Shading is flat, per triangle, and the projection is orthographic, which is
+    the reason the rasteriser below can interpolate depth linearly in screen
+    space with no perspective divide anywhere.
+    """
+    corners, colours = [], []
     for mesh, colour_name in parts:
-        triangles = mesh.triangles
         normals = mesh.face_normals
-        facing = normals @ forward < 0  # drop the back faces
-        triangles, normals = triangles[facing], normals[facing]
+        facing = normals @ forward < 0  # back faces cannot be seen
+        triangles, normals = mesh.triangles[facing], normals[facing]
         if triangles.size == 0:
             continue
-        projected = np.stack(
-            [triangles @ right, triangles @ up, triangles @ forward], axis=-1
+        corners.append(
+            np.stack([triangles @ right, triangles @ up, triangles @ forward], axis=-1)
         )
         base = np.array(COLOURS[colour_name])
         shade = 0.32 + 0.68 * np.clip(normals @ LIGHT_DIRECTION, 0.0, 1.0)
         shaded = np.tile(base, (len(normals), 1))
         shaded[:, :3] = np.clip(shaded[:, :3] * shade[:, None], 0.0, 1.0)
-        polygons.append(projected)
-        facecolours.append(shaded)
+        colours.append(shaded)
+    return np.concatenate(corners), np.concatenate(colours)
 
-    projected = np.concatenate(polygons)
-    facecolours = np.concatenate(facecolours)
-    order = np.argsort(-projected[:, :, 2].mean(axis=1))  # far to near
 
-    axes.add_collection(
-        PolyCollection(
-            projected[order][:, :, :2],
-            facecolors=facecolours[order],
-            edgecolors="none",
-            antialiased=False,
-        )
-    )
-    flat = projected.reshape(-1, 3)
-    axes.set_xlim(flat[:, 0].min() - 5, flat[:, 0].max() + 5)
-    axes.set_ylim(flat[:, 1].min() - 5, flat[:, 1].max() + 5)
-    axes.set_aspect("equal")
+def to_pixels(corners, width, height):
+    """Fit the projection to the frame, in pixels, y pointing down."""
+    flat = corners.reshape(-1, 3)
+    low, high = flat[:, :2].min(axis=0), flat[:, :2].max(axis=0)
+    span = np.maximum(high - low, 1e-9) * (1 + 2 * VIEW_MARGIN)
+    scale = min(width / span[0], height / span[1])
+    centre = (low + high) / 2
+    pixels = np.empty_like(corners)
+    pixels[:, :, 0] = (corners[:, :, 0] - centre[0]) * scale + width / 2
+    pixels[:, :, 1] = height / 2 - (corners[:, :, 1] - centre[1]) * scale
+    pixels[:, :, 2] = corners[:, :, 2]
+    return pixels
+
+
+def fill(triangle, image, depth, colour, blend):  # pylint: disable=too-many-locals
+    """Rasterise one triangle with a per-pixel depth test.
+
+    Barycentric coordinates are evaluated over the triangle's pixel bounding
+    box with three edge functions; a pixel is inside when all three are
+    non-negative. Depth interpolates linearly across them, which is exact under
+    an orthographic projection.
+
+    `blend` is the alpha to composite with, and it is what makes the two-pass
+    structure necessary: an opaque triangle writes both colour and depth, while
+    a transparent one tests against the depth already there and composites over
+    it without writing, so the geometry behind it is not erased.
+    """
+    height, width = depth.shape
+    xs, ys = triangle[:, 0], triangle[:, 1]
+    x_min = max(int(np.floor(xs.min())), 0)
+    x_max = min(int(np.ceil(xs.max())), width - 1)
+    y_min = max(int(np.floor(ys.min())), 0)
+    y_max = min(int(np.ceil(ys.max())), height - 1)
+    if x_min > x_max or y_min > y_max:
+        return
+
+    (x0, y0), (x1, y1), (x2, y2) = triangle[:, :2]
+    area = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
+    if abs(area) < 1e-12:  # degenerate, or exactly edge-on
+        return
+
+    grid_x = np.arange(x_min, x_max + 1) + 0.5
+    grid_y = (np.arange(y_min, y_max + 1) + 0.5)[:, None]
+    bary_0 = ((y1 - y2) * (grid_x - x2) + (x2 - x1) * (grid_y - y2)) / area
+    bary_1 = ((y2 - y0) * (grid_x - x2) + (x0 - x2) * (grid_y - y2)) / area
+    bary_2 = 1.0 - bary_0 - bary_1
+    inside = (bary_0 >= 0) & (bary_1 >= 0) & (bary_2 >= 0)
+    if not inside.any():
+        return
+
+    window = (slice(y_min, y_max + 1), slice(x_min, x_max + 1))
+    z = bary_0 * triangle[0, 2] + bary_1 * triangle[1, 2] + bary_2 * triangle[2, 2]
+    visible = inside & (z < depth[window])
+    if not visible.any():
+        return
+
+    if blend >= 1.0:
+        depth[window] = np.where(visible, z, depth[window])
+        image[window][visible] = colour[:3]
+    else:
+        patch = image[window]
+        patch[visible] = patch[visible] * (1.0 - blend) + colour[:3] * blend
+
+
+def rasterise(parts, azimuth_deg, elevation_deg):
+    """Render one view with a z-buffer, at SUPERSAMPLE x, then box-filter down.
+
+    This replaced a painter's-algorithm pass that sorted whole triangles by
+    their centroid depth. Sorting by centroid is only ever an approximation:
+    two triangles that interpenetrate have no correct order, and neither does a
+    large one crossing a small one, so the acrylic panels seamed against the
+    frame and the plate speckled where it met the fan. A depth test per pixel
+    has no ordering to get wrong.
+    """
+    width, height = (side * SUPERSAMPLE for side in VIEW_PIXELS)
+    right, up, forward = camera(azimuth_deg, elevation_deg)
+    corners, colours = project(parts, right, up, forward)
+    pixels = to_pixels(corners, width, height)
+
+    image = np.tile(BACKGROUND, (height, width, 1))
+    depth = np.full((height, width), np.inf)
+
+    opaque = colours[:, 3] >= 1.0
+    for index in np.flatnonzero(opaque):
+        fill(pixels[index], image, depth, colours[index], 1.0)
+
+    # Transparent faces last, far to near, so overlapping ones layer correctly
+    # against each other. They read the depth buffer the opaque pass filled and
+    # never write to it.
+    clear = np.flatnonzero(~opaque)
+    for index in clear[np.argsort(-pixels[clear][:, :, 2].mean(axis=1))]:
+        fill(pixels[index], image, depth, colours[index], colours[index, 3])
+
+    return image.reshape(
+        VIEW_PIXELS[1], SUPERSAMPLE, VIEW_PIXELS[0], SUPERSAMPLE, 3
+    ).mean(axis=(1, 3))
+
+
+def draw(axes, parts, azimuth_deg, elevation_deg, title):
+    """Render the assembly into `axes` from one orthographic viewpoint."""
+    axes.imshow(np.clip(rasterise(parts, azimuth_deg, elevation_deg), 0.0, 1.0))
     axes.axis("off")
     axes.set_title(title, fontsize=11, color="#222222", pad=6)
 
