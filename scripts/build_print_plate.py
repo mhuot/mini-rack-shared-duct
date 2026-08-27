@@ -149,28 +149,31 @@ def arrange(parts, bed, margin=8.0, gap=6.0):
 
 
 def write_3mf(parts, out_path):
+    """Hand-write a vanilla 3MF PrusaSlicer opens as separate objects."""
     objects_xml = []
     items_xml = []
     for index, (name, mesh) in enumerate(parts, start=1):
         vertices = "".join(
-            '<vertex x="%.4f" y="%.4f" z="%.4f"/>' % tuple(v) for v in mesh.vertices
+            f'<vertex x="{v[0]:.4f}" y="{v[1]:.4f}" z="{v[2]:.4f}"/>'
+            for v in mesh.vertices
         )
         triangles = "".join(
-            '<triangle v1="%d" v2="%d" v3="%d"/>' % tuple(f) for f in mesh.faces
+            f'<triangle v1="{t[0]}" v2="{t[1]}" v3="{t[2]}"/>' for t in mesh.faces
         )
         objects_xml.append(
-            '<object id="%d" name="%s" type="model"><mesh>'
-            "<vertices>%s</vertices><triangles>%s</triangles>"
-            "</mesh></object>" % (index, name, vertices, triangles)
+            f'<object id="{index}" name="{name}" type="model"><mesh>'
+            f"<vertices>{vertices}</vertices><triangles>{triangles}</triangles>"
+            "</mesh></object>"
         )
-        items_xml.append('<item objectid="%d"/>' % index)
+        items_xml.append(f'<item objectid="{index}"/>')
 
+    resources = "".join(objects_xml)
+    build = "".join(items_xml)
     model = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<model unit="millimeter" xml:lang="en-US" '
         'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">'
-        "<resources>%s</resources><build>%s</build></model>"
-        % ("".join(objects_xml), "".join(items_xml))
+        f"<resources>{resources}</resources><build>{build}</build></model>"
     )
 
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -180,6 +183,7 @@ def write_3mf(parts, out_path):
 
 
 def main():
+    """Arrange and write every plate the arguments ask for."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--variant",
