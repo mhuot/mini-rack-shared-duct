@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mini-Rack Laptop Trays</title>
-<meta name="description" content="Two laptops, one desk. They slide into a 10 inch mini rack like drawers, with ducted fans out the back. Free files, MIT licensed.">
+<title>Mini-Rack Shared Duct</title>
+<meta name="description" content="Three laptops in a 10 inch mini rack, sharing one duct and one 120mm case fan. Free files, MIT licensed.">
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 <style>
   :root {
@@ -140,13 +140,13 @@
 <body>
 <main>
   <header>
-    <h1>Two laptops, one desk. So they slide into the rack.</h1>
-    <p class="tagline">3D printed trays that rack-mount a MacBook Pro and a Surface Laptop in a 10 inch mini rack, with ducted fans out the back. Free files, MIT licensed.</p>
+    <h1>Three laptops, one duct, one fan.</h1>
+    <p class="tagline">A fork of the mini rack laptop trays that stops giving every laptop its own fans, and gives all three of them one shared plenum instead. Free files, MIT licensed.</p>
   </header>
 
   <model-viewer
-    src="models/rack-mockup.glb"
-    alt="3D model of a 4U 10 inch mini rack holding two laptops on sliding rod trays with rear fan plates"
+    src="models/shared-duct.glb"
+    alt="3D model of three laptops stacked in a 10 inch mini rack behind a single shared duct with one 120mm fan"
     camera-controls
     auto-rotate
     auto-rotate-delay="1500"
@@ -156,65 +156,71 @@
     camera-orbit="35deg 72deg 105%"
     interaction-prompt="none">
   </model-viewer>
-  <p class="hint">Drag to spin, scroll to zoom. The orange parts are the printed ones and the brown ones are the fans.</p>
+  <p class="hint">Drag to spin, scroll to zoom. Orange is printed, brown is the fan, and the model is built from the same meshes the checks run against.</p>
+
+  <h2>What changed, and why</h2>
+  <p>The <a href="https://github.com/mhuot/mini-rack-laptop-trays">original project</a> builds this rack one tray at a time. Each laptop gets its own rack unit, its own duct closed by its own two panels, its own plate, and its own three 40mm fans. That is a good design for one or two laptops and it does not scale. Three of them is nine fans, nine leads, three power runs, and three ducts that cannot help each other. Add a laptop and you print another whole duct.</p>
+  <p>So this fork throws away everything behind the laptops and keeps everything in front. The ears, the rods, the sliding drawer, the ear variants, the print orientation, all unchanged. Behind them, one plenum three rack units tall with a single 120mm fan pulling on it.</p>
 
   <figure class="zoomable">
-    <img src="images/rack-explode.gif" alt="The parts flying apart and back together" loading="lazy" data-zoom>
-    <figcaption>Everything that gets printed, flying out the way it goes together. The plug for an unused fan opening is the one part missing, because that only exists if you run fewer than three fans.</figcaption>
+    <img src="images/shared-duct-assembly.png" alt="Four views of the shared duct assembly: from behind, from the front, from the side, and head on" loading="lazy" data-zoom>
+    <figcaption>The whole thing, four ways. Three laptops feed one cavity, and one fan sits in the middle of the plate that closes it.</figcaption>
   </figure>
 
-  <h2>Why this exists</h2>
-  <p>I use my laptops clamshell. Lid closed, hooked to an ultrawide with a real keyboard and mouse. The problem is two of them on one desk. My desk is six feet by two and a half, and that still is not enough room, because I want space for other projects too.</p>
-  <p>Then I came across the <a href="https://mini-rack.jeffgeerling.com/">10 inch mini rack standard</a>. Desk sized racks, mostly for home lab gear. Mine is a <a href="https://www.amazon.com/dp/B0DPGZPTPP">GeeekPi 4U cabinet</a>, about 80 dollars on Amazon. I thought, what if the laptops just slid in.</p>
+  <h2>The part that made it easy</h2>
+  <p>A front ear and a rear ear, which is what I call the brackets, hold 8mm smooth rod that the laptop slides in on. That part is untouched. What made the shared duct almost free is something the ears were already doing.</p>
+  <p>Each rear ear fills its rack unit exactly, floor to ceiling, with no gap at either end. Stack three pairs and the little 2mm side walls on their outer faces line up into one continuous wall 133mm tall. The sides of the duct seal themselves, with no new part and no change to a part that already prints and fits.</p>
+  <p>Which leaves only the top and the bottom to close. So the plate grows two duct walls instead of six, and the four rails at the boundaries in between get left empty on purpose. Each of those is closed at its outer end by the ear itself, so it is a dead end rather than a hole. Filling them in would split the plenum back into three ducts, which is the exact thing this was for.</p>
 
-  <h2>How it works</h2>
-  <p>A front ear and a rear ear, which is what I call the brackets, plus 8mm smooth rod I had left over from an old 3D printer. The rods bridge front to back and the laptop slides in like a drawer and rests on them. One rack unit per laptop. A MacBook Pro 14 and a Surface Laptop 13.8 both fit the same parts.</p>
-  <div class="shots">
-    <img src="images/rack-side.png" alt="Side view showing the rod runs and the laptop overhang" loading="lazy" data-zoom>
-    <img src="images/rack-rear-fans.png" alt="Rear view showing the fan plates and ducts" loading="lazy" data-zoom>
-  </div>
-  <p>The laptops ran warm in the confined space and their fans kept spinning up. Not healthy. The fix is a plate that mounts to the back of the rear ears and holds three <a href="https://www.amazon.com/Noctua-NF-A4x20-5V-3-Pin-Premium/dp/B072Q3CMRW">Noctua NF-A4x20 5V</a> fans. 40mm is the biggest fan that stands upright inside a single rack unit, and three of them together draw 0.3 amps, so a tray runs off any USB port. The fans ship with screws and a solderless splice kit, you supply one old USB cable per tray. No power supply, no soldering. The one warning is to skip generic USB fan adapters, most of them quietly boost to 12V and a 5V fan will not survive that.</p>
-  <p>The plate is more than a fan holder. Printed duct panels close off the top and bottom behind the laptop, walls on the ears close the sides, and the rack itself has solid acrylic panels. The only way in is the front of the rack, so the fans have to pull their air across the top and bottom of the laptop to get it. That is the whole trick.</p>
+  <figure class="zoomable">
+    <img src="images/shared-fan-plate.png" alt="Dimensioned drawing of the shared duct fan plate seen from the rear, and the depth it adds behind the rack" loading="lazy" data-zoom>
+    <figcaption>222 by 132.55 by 4mm, held by twelve M3 screws into inserts the ears already have. The dotted lines are the rack unit boundaries, and the point is that the plate ignores them.</figcaption>
+  </figure>
+
+  <h2>Why a case fan</h2>
+  <p>Because everybody has one in a drawer. A 120mm frame, 105mm screw pitch and 12V are what every PC fan built in the last thirty years already is, so a fan pulled out of a dead tower drops straight in. The original needed 40mm fans for the good reason that 40mm is the largest thing that stands upright inside one rack unit. Three rack units is 133mm, and that is enough room for a fan most people already own.</p>
+  <p>Here is the honest part. One big fan is quieter, needs one lead and one supply, and pulls better against the duct's back pressure than a row of small ones. It is not more airflow than nine 40mm fans, and I would rather say that here than let the page imply otherwise.</p>
+  <p>The measurement that matters came out of the checking script, which works out the plenum's free area from the actual meshes with three laptops sitting in it. The cavity is 13,649mm2. The fan opening is 10,207. So on this design the opening is the restriction, where on the original the openings were comfortably bigger than the duct. That is the trade for going to one fan, stated in numbers instead of adjectives.</p>
+  <p>It is also why the opening is chamfered. A sharp edged hole in a 4mm plate makes the air separate as it turns in, so the hole that passes air is smaller than the hole you cut. 3mm at 45 degrees on the duct side fixes most of that, and it costs nothing: the plate prints face down, so the chamfer is on the upward side and every layer sits on the one below it. No support, no extra time, no change to where the fan seals.</p>
+  <p>I looked at a pocket for the fan to drop into and at a collar reaching into the duct, and neither one earns its place. The pocket eats the 3mm of flat the fan seals against, to locate a fan that four corner screws already locate. The collar would sit exactly where the middle laptop's exhaust gap feeds the fan, blocking the air it was supposed to be guiding.</p>
+
   <figure class="zoomable">
     <img src="images/laptop-depth.png" alt="Side section showing how far each laptop reaches into the rear ears" loading="lazy" data-zoom>
-    <figcaption>Where the laptop actually stops. It slides 65mm into the rear ear and comes up against the back plate. The 7mm left behind that is the duct exit, and it is the reason the back plate cannot just be opened up to let the laptop sit further in. Open it and the laptop ends up flat against the fan plate, blocking every fan.</figcaption>
+    <figcaption>Where the laptop stops. It slides 65mm into the rear ear and comes up against the back plate, and the 7mm left behind that is how this rack unit feeds the shared duct. Same as the original. Only what happens after that gap changed.</figcaption>
   </figure>
 
-  <p>The duct used to be part of the plate. One piece, four hours to print, most of it wall, and every change to the fan layout meant printing the wall again. Now it is three pieces. A flat plate, and two sheets that slide into duct rails on the ears. The rails reach into the dead space above and below the laptop, which was doing nothing anyway.</p>
-  <p>Getting the sheets to actually seal took longer than drawing them. They only grip 10mm at each end, so 170mm of the back edge had nothing holding it against the plate, and a butt joint over that distance does not seal. So the plate got a groove for the edge to sit in. Then they were 2mm sheets in a 2.4mm slot, which is 0.4mm of room to rattle in next to the fans, so they became 2.2mm. None of that shows up in a photo. All of it was the difference between a duct and two loose panels.</p>
-  <p>It started as four fans. Then I worked out the duct's own free area, about 3880mm2 with a MacBook in it, and three openings come to 3584. That is the crossover. Below it the openings choke the duct, above it you are adding noise and not air. Four was past it. So three, evenly spaced so each one draws its own third.</p>
-  <p>The plate has three openings either way, so the repo includes a printed plug for an empty one. Start with two fans and a plug, and if the thermometer disagrees, pull the plug and add the third. No reprint. The zip tie slots sit either side of every opening, so one tie through them straps the plug in, and there is a channel across the plug face for it to sit in.</p>
+  <h2>The thing that can go wrong</h2>
+  <p>Six ears stacked three high only seal if they genuinely touch. The model butts them at exactly 44.45mm, and the check says that seals. Open a 0.2mm gap between them, which is well within what a real rack's rail holes will do to you, and the duct is open to the room along that seam.</p>
+  <p>It is not a disaster. It is a thin slot, not a hole, and the fan still pulls through the plenum. But it is the one failure this version has that the original could not, because the original never stacked anything. Look at the seams before you blame the fan, and put a strip of foam tape down them if it whistles.</p>
+  <p>The rest of the duct is checked rather than assumed. The script boolean intersects every pair of parts for interference, then floods the air in a cross section to see if it reaches the outside. It does, by 0.88mm2, which is the deliberate 0.1mm of clearance each duct wall needs to slide into its rail. To prove that is the only way out, the same test runs again against a plate whose walls reach all the way in. That one seals. So the duct has no hole in it beyond the clearance it needs to go together, and that clearance is nine thousandths of one percent of the fan opening.</p>
+
+  <h2>Wiring, and the guard</h2>
+  <p>One fan, one lead, and the only thing worth getting right is where the 12V comes from. A wall wart with a barrel pigtail is the answer if nothing else lives in the rack. A PC supply's Molex is the answer if one does, and it matches where the fan came from. An inline controller is the answer if you want to be able to quiet it down later. All three are drawn on the page below.</p>
+  <p>One warning, and it is the original's warning turned around. That project ran 5V fans and had to avoid USB cables that secretly boost to 12V. This one runs 12V on purpose, so do not feed it from a USB port and expect it to spin properly.</p>
   <figure class="zoomable">
-    <img src="images/fan-wiring.png" alt="Fan plate from behind, showing the fans, tie slots and lead routing" loading="lazy" data-zoom>
-    <figcaption>The fans fill the unit to within 2mm top and bottom, so a lead has nowhere to go except the gaps between them. Solid is the bundle lying on the plate where a tie can hold it. Dashed is where it rides over a fan frame, 20mm off the plate, and a tie cannot reach.</figcaption>
+    <img src="images/fan-wiring.png" alt="The plate from behind with the fan fitted, and three ways to supply 12V" loading="lazy" data-zoom>
+    <figcaption>The lead comes off a corner of the frame, gets caught by the first tie pair, and leaves through the second as strain relief. A 4 pin fan on plain 12V runs flat out, because the PWM pin idles high.</figcaption>
   </figure>
-
-  <p>About the colors. The printed parts render in Prusa orange because that is what is loaded in my printer. Print yours in anything. The fans are that famous Noctua brown, the color nobody asks for and everybody recognizes. Those you are stuck with.</p>
-  <p>I have not thermal tested it yet. The plate exists, the fans are specified, and I do not know yet if it solves the heat. That will be its own evening with a thermometer and probably its own disappointment.</p>
+  <p>There is also an optional printed guard. A 120mm fan spinning in the open back of a rack is the one part of this build that can bite, and a flat grille on the same four screws fixes it. The first version I drew blocked three quarters of the opening, which is a restrictor with a nicer name. The one in the repo leaves 77 percent open, which is about where a stamped steel guard lands.</p>
 
   <h2>Get the files</h2>
   <p>Everything is in the repo, MIT licensed.</p>
   <ul>
     <li>STLs for every part, verified watertight</li>
-    <li>3MF plates for PrusaSlicer, arranged and mirrored. Ears on one, the duct on two more</li>
-    <li>STEP and Fusion 360 files if you want to change things</li>
-    <li>A bill of materials. About 165g of PETG per tray, plus three fans, four rods, and a handful of M3 hardware</li>
-    <li>Three rear ear options. <a href="https://cnckitchenus.store/products/heat-set-insert-m3-x-3-short-version-100-pieces">Heat-set inserts</a>, plain hex nuts, or screws straight into the plastic</li>
+    <li>3MF plates for PrusaSlicer. Ears on one, print it three times. The duct on another, print it once. The guard on a third if you want it</li>
+    <li>The plate builds <strong>without Fusion</strong>. It is a rectangle with two fins, so there is a script that makes the STL from primitives on any machine with Python. The ears still need Fusion, because they have real shape in them</li>
+    <li>Every dimension lives in one file, so the Fusion part and the printable mesh cannot drift apart</li>
+    <li>Set it to two laptops and an 80mm fan by changing two numbers. It refuses combinations that will not physically fit</li>
+    <li>About 172g of PETG for the plate, plus roughly 165g of ears per laptop, one fan, four rods each, and M3 hardware</li>
   </ul>
-  <p><a class="cta" href="https://github.com/mhuot/mini-rack-laptop-trays">Get the files on GitHub</a></p>
+  <p><a class="cta" href="https://github.com/mhuot/mini-rack-shared-duct">Get the files on GitHub</a></p>
+  <p>The project this came from is still there and still the right answer for one or two laptops: <a href="https://github.com/mhuot/mini-rack-laptop-trays">mini-rack-laptop-trays</a>.</p>
 
-  <h2>The easier way</h2>
-  <p>A friend saw this and sent me photos of his desk. A vertical stand, both laptops standing on edge, twenty dollars and about a minute of work. No printer, no CAD, no fans, no evenings.</p>
-  <p>It works. It holds two laptops and it takes up less desk than my rack does. I have no rebuttal.</p>
-  <p>What I will say is that his laptops are cooled by the room and optimism, which is exactly what mine were doing before I started. And nothing on his desk slides out like a drawer.</p>
-  <p>He had a suggestion too. Print a version that screws down to the desk so it does not tip. His is weighted, which is the same problem with a heavier answer. So the twenty dollar solution needs ballast and mine needs three fans and neither of us is winning. He finished with the note that I could still 3D print it, which is the friendliest way anyone has told me I overdid it.</p>
-
-  <h2>How it got built</h2>
-  <p>I modeled the first pass myself in Fusion 360. The trays worked, then the heat problem sat untouched for months. Not a skill problem, I was stuck, which is a different thing.</p>
-  <p>The cooling came out of handing Claude my Fusion files and photos of the rack through the <a href="https://www.autodesk.com/campaigns/fusion-360/claude-fusion">Fusion MCP</a>. It designed the fan plate and the duct, I caught its mistakes and it caught mine. The repo lists two contributors, me and Claude. The idea was still mine. So was the drawing, the corrections, and the mistake I had to catch myself.</p>
+  <h2>Still untested</h2>
+  <p>The geometry is checked. The airflow is not. Nothing here has been in front of a thermometer yet, and the one number I would most like to have, whether one 120mm fan actually beats nine 40mm ones in this particular box, is exactly the number a spreadsheet cannot tell me. That will be its own evening.</p>
 </main>
 <footer>
-  <a href="https://github.com/mhuot/mini-rack-laptop-trays">github.com/mhuot/mini-rack-laptop-trays</a>, MIT licensed. Built by Mike Huot, with Claude doing the clicking.
+  <a href="https://github.com/mhuot/mini-rack-shared-duct">github.com/mhuot/mini-rack-shared-duct</a>, MIT licensed. Built by Mike Huot, with Claude doing the clicking. Forked from <a href="https://github.com/mhuot/mini-rack-laptop-trays">mini-rack-laptop-trays</a>.
 </footer>
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged image">
   <button class="lightbox-close" type="button" aria-label="Close">Close &#10005;</button>
