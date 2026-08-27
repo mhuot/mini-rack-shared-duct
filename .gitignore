@@ -1,0 +1,9 @@
+.DS_Store
+*.stl.bak
+*.gcode
+*.3mf
+!exports/*.3mf
+private/
+
+__pycache__/
+*.pyc

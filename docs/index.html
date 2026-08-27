@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini-Rack Laptop Trays</title>
+<meta name="description" content="Two laptops, one desk. They slide into a 10 inch mini rack like drawers, with ducted fans out the back. Free files, MIT licensed.">
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --text: #1a1d21;
+    --muted: #5b6470;
+    --accent: #f75403;
+    --link: #2563eb;
+    --border: #e2e6eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101216;
+      --panel: #181b21;
+      --text: #e8eaed;
+      --muted: #9aa3af;
+      --accent: #f97316;
+      --link: #60a5fa;
+      --border: #2a2f38;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 0 1.5rem 3rem; }
+  header { padding: 3rem 0 1rem; }
+  h1 { font-size: 2rem; letter-spacing: -0.02em; line-height: 1.2; }
+  .tagline { color: var(--muted); margin-top: 0.5rem; font-size: 1.1rem; }
+  h2 { font-size: 1.3rem; margin: 2.5rem 0 0.75rem; letter-spacing: -0.01em; }
+  p { margin: 0.9rem 0; }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  model-viewer {
+    width: 100%;
+    height: min(62vh, 560px);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-top: 1.5rem;
+  }
+  .hint { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 0.5rem 0 0; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.25rem 0; }
+  .shots img {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+  @media (max-width: 640px) { .shots { grid-template-columns: 1fr; } }
+  .cta {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.7rem 1.3rem;
+    border-radius: 10px;
+    margin-top: 0.5rem;
+  }
+  .cta:hover { text-decoration: none; filter: brightness(1.07); }
+  ul { margin: 0.9rem 0 0.9rem 1.4rem; }
+  li { margin: 0.35rem 0; }
+  footer {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Nothing constrained a standalone image, so the wide diagrams rendered at
+     their natural 2000-odd pixels and pushed the whole page sideways. */
+  main img { max-width: 100%; height: auto; display: block; }
+  figure { margin: 1.5rem 0; }
+  figure img {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+  figcaption { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 0.5rem 0 0; }
+
+  /* Fitting a 2145px section into 880px makes it unreadable, so it opens
+     full size instead of shrinking to fit and staying shrunk. */
+  [data-zoom] { cursor: zoom-in; }
+  .zoomable { position: relative; }
+  .zoomable::after {
+    content: "click to enlarge";
+    position: absolute; right: 0.6rem; top: 0.6rem;
+    background: rgba(8,10,13,0.68); color: #fff;
+    font-size: 0.72rem; padding: 0.22rem 0.5rem; border-radius: 6px;
+    pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  }
+  .zoomable:hover::after, .zoomable:focus-within::after { opacity: 1; }
+  @media (hover: none) {
+    .zoomable::after { content: "tap to enlarge"; opacity: 1; }
+  }
+
+  .lightbox {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(8,10,13,0.95);
+    display: none; overflow: auto;
+    padding: 3.25rem 1rem 2.5rem;
+  }
+  .lightbox.is-open { display: block; }
+  .lightbox img {
+    display: block; margin: 0 auto;
+    max-width: none; height: auto;
+    cursor: zoom-out; border-radius: 6px;
+  }
+  .lightbox-close {
+    position: fixed; top: 0.6rem; right: 0.8rem;
+    background: rgba(255,255,255,0.12); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 8px;
+    font: inherit; font-size: 0.9rem; line-height: 1;
+    padding: 0.5rem 0.8rem; cursor: pointer;
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.22); }
+  .lightbox-caption {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    text-align: center; color: #cfd6de; font-size: 0.82rem;
+    padding: 0.7rem 1rem;
+    background: linear-gradient(transparent, rgba(8,10,13,0.92));
+    pointer-events: none;
+  }
+  body.lightbox-open { overflow: hidden; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Two laptops, one desk. So they slide into the rack.</h1>
+    <p class="tagline">3D printed trays that rack-mount a MacBook Pro and a Surface Laptop in a 10 inch mini rack, with ducted fans out the back. Free files, MIT licensed.</p>
+  </header>
+
+  <model-viewer
+    src="models/rack-mockup.glb"
+    alt="3D model of a 4U 10 inch mini rack holding two laptops on sliding rod trays with rear fan plates"
+    camera-controls
+    auto-rotate
+    auto-rotate-delay="1500"
+    rotation-per-second="18deg"
+    shadow-intensity="0.8"
+    exposure="1.05"
+    camera-orbit="35deg 72deg 105%"
+    interaction-prompt="none">
+  </model-viewer>
+  <p class="hint">Drag to spin, scroll to zoom. The orange parts are the printed ones and the brown ones are the fans.</p>
+
+  <figure class="zoomable">
+    <img src="images/rack-explode.gif" alt="The parts flying apart and back together" loading="lazy" data-zoom>
+    <figcaption>Everything that gets printed, flying out the way it goes together. The plug for an unused fan opening is the one part missing, because that only exists if you run fewer than three fans.</figcaption>
+  </figure>
+
+  <h2>Why this exists</h2>
+  <p>I use my laptops clamshell. Lid closed, hooked to an ultrawide with a real keyboard and mouse. The problem is two of them on one desk. My desk is six feet by two and a half, and that still is not enough room, because I want space for other projects too.</p>
+  <p>Then I came across the <a href="https://mini-rack.jeffgeerling.com/">10 inch mini rack standard</a>. Desk sized racks, mostly for home lab gear. Mine is a <a href="https://www.amazon.com/dp/B0DPGZPTPP">GeeekPi 4U cabinet</a>, about 80 dollars on Amazon. I thought, what if the laptops just slid in.</p>
+
+  <h2>How it works</h2>
+  <p>A front ear and a rear ear, which is what I call the brackets, plus 8mm smooth rod I had left over from an old 3D printer. The rods bridge front to back and the laptop slides in like a drawer and rests on them. One rack unit per laptop. A MacBook Pro 14 and a Surface Laptop 13.8 both fit the same parts.</p>
+  <div class="shots">
+    <img src="images/rack-side.png" alt="Side view showing the rod runs and the laptop overhang" loading="lazy" data-zoom>
+    <img src="images/rack-rear-fans.png" alt="Rear view showing the fan plates and ducts" loading="lazy" data-zoom>
+  </div>
+  <p>The laptops ran warm in the confined space and their fans kept spinning up. Not healthy. The fix is a plate that mounts to the back of the rear ears and holds three <a href="https://www.amazon.com/Noctua-NF-A4x20-5V-3-Pin-Premium/dp/B072Q3CMRW">Noctua NF-A4x20 5V</a> fans. 40mm is the biggest fan that stands upright inside a single rack unit, and three of them together draw 0.3 amps, so a tray runs off any USB port. The fans ship with screws and a solderless splice kit, you supply one old USB cable per tray. No power supply, no soldering. The one warning is to skip generic USB fan adapters, most of them quietly boost to 12V and a 5V fan will not survive that.</p>
+  <p>The plate is more than a fan holder. Printed duct panels close off the top and bottom behind the laptop, walls on the ears close the sides, and the rack itself has solid acrylic panels. The only way in is the front of the rack, so the fans have to pull their air across the top and bottom of the laptop to get it. That is the whole trick.</p>
+  <figure class="zoomable">
+    <img src="images/laptop-depth.png" alt="Side section showing how far each laptop reaches into the rear ears" loading="lazy" data-zoom>
+    <figcaption>Where the laptop actually stops. It slides 65mm into the rear ear and comes up against the back plate. The 7mm left behind that is the duct exit, and it is the reason the back plate cannot just be opened up to let the laptop sit further in. Open it and the laptop ends up flat against the fan plate, blocking every fan.</figcaption>
+  </figure>
+
+  <p>The duct used to be part of the plate. One piece, four hours to print, most of it wall, and every change to the fan layout meant printing the wall again. Now it is three pieces. A flat plate, and two sheets that slide into duct rails on the ears. The rails reach into the dead space above and below the laptop, which was doing nothing anyway.</p>
+  <p>Getting the sheets to actually seal took longer than drawing them. They only grip 10mm at each end, so 170mm of the back edge had nothing holding it against the plate, and a butt joint over that distance does not seal. So the plate got a groove for the edge to sit in. Then they were 2mm sheets in a 2.4mm slot, which is 0.4mm of room to rattle in next to the fans, so they became 2.2mm. None of that shows up in a photo. All of it was the difference between a duct and two loose panels.</p>
+  <p>It started as four fans. Then I worked out the duct's own free area, about 3880mm2 with a MacBook in it, and three openings come to 3584. That is the crossover. Below it the openings choke the duct, above it you are adding noise and not air. Four was past it. So three, evenly spaced so each one draws its own third.</p>
+  <p>The plate has three openings either way, so the repo includes a printed plug for an empty one. Start with two fans and a plug, and if the thermometer disagrees, pull the plug and add the third. No reprint. The zip tie slots sit either side of every opening, so one tie through them straps the plug in, and there is a channel across the plug face for it to sit in.</p>
+  <figure class="zoomable">
+    <img src="images/fan-wiring.png" alt="Fan plate from behind, showing the fans, tie slots and lead routing" loading="lazy" data-zoom>
+    <figcaption>The fans fill the unit to within 2mm top and bottom, so a lead has nowhere to go except the gaps between them. Solid is the bundle lying on the plate where a tie can hold it. Dashed is where it rides over a fan frame, 20mm off the plate, and a tie cannot reach.</figcaption>
+  </figure>
+
+  <p>About the colors. The printed parts render in Prusa orange because that is what is loaded in my printer. Print yours in anything. The fans are that famous Noctua brown, the color nobody asks for and everybody recognizes. Those you are stuck with.</p>
+  <p>I have not thermal tested it yet. The plate exists, the fans are specified, and I do not know yet if it solves the heat. That will be its own evening with a thermometer and probably its own disappointment.</p>
+
+  <h2>Get the files</h2>
+  <p>Everything is in the repo, MIT licensed.</p>
+  <ul>
+    <li>STLs for every part, verified watertight</li>
+    <li>3MF plates for PrusaSlicer, arranged and mirrored. Ears on one, the duct on two more</li>
+    <li>STEP and Fusion 360 files if you want to change things</li>
+    <li>A bill of materials. About 165g of PETG per tray, plus three fans, four rods, and a handful of M3 hardware</li>
+    <li>Three rear ear options. <a href="https://cnckitchenus.store/products/heat-set-insert-m3-x-3-short-version-100-pieces">Heat-set inserts</a>, plain hex nuts, or screws straight into the plastic</li>
+  </ul>
+  <p><a class="cta" href="https://github.com/mhuot/mini-rack-laptop-trays">Get the files on GitHub</a></p>
+
+  <h2>The easier way</h2>
+  <p>A friend saw this and sent me photos of his desk. A vertical stand, both laptops standing on edge, twenty dollars and about a minute of work. No printer, no CAD, no fans, no evenings.</p>
+  <p>It works. It holds two laptops and it takes up less desk than my rack does. I have no rebuttal.</p>
+  <p>What I will say is that his laptops are cooled by the room and optimism, which is exactly what mine were doing before I started. And nothing on his desk slides out like a drawer.</p>
+  <p>He had a suggestion too. Print a version that screws down to the desk so it does not tip. His is weighted, which is the same problem with a heavier answer. So the twenty dollar solution needs ballast and mine needs three fans and neither of us is winning. He finished with the note that I could still 3D print it, which is the friendliest way anyone has told me I overdid it.</p>
+
+  <h2>How it got built</h2>
+  <p>I modeled the first pass myself in Fusion 360. The trays worked, then the heat problem sat untouched for months. Not a skill problem, I was stuck, which is a different thing.</p>
+  <p>The cooling came out of handing Claude my Fusion files and photos of the rack through the <a href="https://www.autodesk.com/campaigns/fusion-360/claude-fusion">Fusion MCP</a>. It designed the fan plate and the duct, I caught its mistakes and it caught mine. The repo lists two contributors, me and Claude. The idea was still mine. So was the drawing, the corrections, and the mistake I had to catch myself.</p>
+</main>
+<footer>
+  <a href="https://github.com/mhuot/mini-rack-laptop-trays">github.com/mhuot/mini-rack-laptop-trays</a>, MIT licensed. Built by Mike Huot, with Claude doing the clicking.
+</footer>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged image">
+  <button class="lightbox-close" type="button" aria-label="Close">Close &#10005;</button>
+  <img alt="">
+  <p class="lightbox-caption"></p>
+</div>
+<script>
+(function () {
+  var box = document.getElementById('lightbox');
+  var full = box.querySelector('img');
+  var caption = box.querySelector('.lightbox-caption');
+  var closer = box.querySelector('.lightbox-close');
+  var opener = null;
+
+  function describe(img) {
+    var figure = img.closest('figure');
+    var text = figure && figure.querySelector('figcaption');
+    return text ? text.textContent : (img.alt || '');
+  }
+
+  function open(img) {
+    full.src = img.currentSrc || img.src;
+    full.alt = img.alt || '';
+    caption.textContent = describe(img);
+    box.classList.add('is-open');
+    document.body.classList.add('lightbox-open');
+    box.scrollTop = 0;
+    // start centred on a wide diagram rather than at its left edge
+    box.scrollLeft = Math.max(0, (full.naturalWidth - box.clientWidth) / 2);
+    opener = img;
+    closer.focus();
+  }
+
+  function close() {
+    box.classList.remove('is-open');
+    document.body.classList.remove('lightbox-open');
+    if (opener) { opener.focus(); }
+  }
+
+  full.addEventListener('load', function () {
+    if (box.classList.contains('is-open')) {
+      box.scrollLeft = Math.max(0, (full.naturalWidth - box.clientWidth) / 2);
+    }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-zoom]'), function (img) {
+    img.tabIndex = 0;
+    img.addEventListener('click', function () { open(img); });
+    img.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open(img);
+      }
+    });
+  });
+
+  closer.addEventListener('click', close);
+  box.addEventListener('click', function (event) {
+    if (event.target !== closer) { close(); }
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && box.classList.contains('is-open')) { close(); }
+  });
+})();
+</script>
+</body>
+</html>
