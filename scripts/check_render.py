@@ -51,6 +51,17 @@ EXPECTED_COUNTS = {
 # films a hundredth of a millimetre thick, and calling those collisions would
 # mean the check cried wolf and got ignored. Anything above the threshold is a
 # part passing through another part.
+# A near-empty render does not look wrong in a thumbnail; it looks like a
+# render of something small. The general advice is to measure the background
+# fraction, and it is worth doing here -- but for a different failure than the
+# one it usually guards. That one is a framing mistake, and this renderer fits
+# the projection to the geometry it was given, so it cannot mis-frame: hand it
+# a single foot and the foot fills the frame.
+#
+# What it does catch is the rasteriser dropping geometry. Verified by making
+# fill() skip 39 of every 40 triangles: three of the four views go over 97%.
+BLANK_LIMIT = 0.95
+
 SLIVER_LIMIT = 25.0  # mm3
 FORBIDDEN_PAIRS = (
     ("laptop", "frame", "a laptop cannot pass through the rack's rails"),
@@ -366,6 +377,26 @@ def check_duct_placement(parts, failures):
     )
 
 
+def check_frames(parts, failures):
+    """No view is mostly empty.
+
+    Because the projection auto-fits, an empty frame here means triangles are
+    not being filled rather than that the camera is pointed wrong. Antialiased
+    edges do not match the background exactly and so count as subject, which
+    errs in the safe direction.
+    """
+    for azimuth, elevation, title in render.VIEWS:
+        image = render.rasterise(parts, azimuth, elevation)
+        background = np.all(
+            np.isclose(image, render.BACKGROUND, atol=1e-3), axis=-1
+        ).mean()
+        failures.check(
+            background < BLANK_LIMIT,
+            f'view "{title}" is {background * 100:.1f}% background -- '
+            "the subject is not filling the frame",
+        )
+
+
 def check_views(failures):
     """Each caption's claimed direction matches where the camera actually looks."""
     for azimuth, elevation, title in render.VIEWS:
@@ -414,6 +445,7 @@ def main():
         ("duct placement", lambda f: check_duct_placement(parts, f)),
         ("view directions", check_views),
         ("rasteriser", check_rasteriser),
+        ("frames", lambda f: check_frames(parts, f)),
     ):
         failures = Failures()
         runner(failures)

@@ -65,89 +65,59 @@ a dimension, change it there and nowhere else.
 Fusion API note: all Fusion API lengths are centimeters. The scripts define
 `MM = 0.1` and work in millimeters throughout.
 
-## Fusion viewport rendering, and what it costs to learn twice
+## Fusion
 
-Carried over from `mini-rack-laptop-trays`, same Fusion MCP setup. Each of
-these cost a debugging cycle there. None of them announce themselves: the
-failure is a render that looks merely disappointing, or a save that looks fine.
+The general Fusion API traps, the render-capture pipeline and the verification
+techniques live in the **`fusion-360-mcp` skill**, which loads automatically.
+Units, camera assignment, `viewExtents`, timeline name suffixing, feature
+ordering, colour classification, glTF colour space, `pointContainment` probes,
+ray-cast solid spans, exact booleans, BRep-versus-mesh comparison: all there,
+none of it repeated here. What follows is only what is true of *this repo*.
 
-**The camera only applies on assignment.** Mutating `viewport.camera` in place
-does nothing. Read it, set the fields, assign it back — that last line is the
-one that does the work:
+**Sketch names are prefixed `Sketch: `.** The skill explains why matching
+timeline items by exact name is dangerous; this is the convention adopted in
+response. `build_shared_fan_plate.py` names every sketch `Sketch: plate`,
+`Sketch: tie slots` and so on, so no timeline name equals another *or is a
+prefix of another* — which matters because the safe matching strategy is by
+prefix.
 
-```python
-camera = viewport.camera
-camera.eye = ...; camera.target = ...; camera.upVector = ...
-viewport.camera = camera        # this is what applies it
-viewport.refresh(); adsk.doEvents()
-viewport.saveAsImageFile(path, width, height)
+**Colour classification: order is load-bearing in a way specific to these
+names.** The skill's examples are a `panel` rule eating "duct panel" and a
+`fan` rule eating "fan plate". This repo hits it from the other end: the body
+`Shared duct fan` contains "duct", so a duct-first rule paints the Noctua as a
+printed part. Specific before general, and the counts are asserted by
+`audit_appearances()` in `build_rack_mockup.py` and `audit_groups()` in
+`build_web_assets.py`. Auditing also caught `Frame front post` falling through
+every rule, because the frame rule only handled a `<slot>_frame_...` prefix.
+
+**The local renderer needs no Z-up to Y-up rotation.** The skill's rule is for
+Fusion exports, and `build_web_assets.py` follows it. But
+`render_shared_duct.py` builds in the mockup's own frame, where y is already
+the rack's vertical axis, so rotating its GLB would tip the rack on its side.
+Check the exported bounds rather than applying the rule reflexively.
+
+**Verifying a plate rebuild: use `--compare`, and note why it is not a volume
+ratio.**
+
+```
+python scripts/build_shared_fan_plate_mesh.py --compare <exported.stl>
 ```
 
-**`viewExtents` is a linear value in centimetres, not an area.** The camera is
-orthographic (`cameraType == 0`). Squaring it renders the model as a speck; two
-images came out 99.9% background before anyone noticed. **If a render looks
-blank, check this first.**
+The skill's technique is to compare BRep volume against the exported mesh and
+treat a gap beyond ~0.1% as real. That threshold is at the noise floor for this
+particular part: the plate is 135,384 mm3 with a chamfer, a Ø114 opening and
+twenty-eight holes, so faceting disagreement alone approaches 0.1%, and the
+533 mm3 that the skill cites as a caught bug would be 0.39% here — detectable,
+but a 144 mm3 loss would not be.
 
-**Don't guess the extents, measure them.** Let Fusion fit the largest state
-once with `isFitView = True`, read `viewport.camera.viewExtents` back, and
-reuse that number with `isFitView = False`. Multiply by ~0.74 to fill the
-frame: Fusion fits to the viewport's aspect, not the aspect passed to
-`saveAsImageFile`.
+So `--compare` does not threshold on total volume. It booleans both directions
+and reports **connected lumps over 5 mm3 with their bounds**, which separates a
+missing feature (a compact lump) from faceting (a thin shell spread over every
+curved face) by shape rather than by magnitude, and says *where*. Run it after
+every Fusion rebuild of the plate.
 
-**`isFitView = True` refits every frame**, so any animation pumps in and out as
-the subject grows. Fixed extents from the step above solve it.
-
-**To frame a subset, hide the rest.** Set `body.isLightBulbOn = False` on
-everything else, fit, and restore in a `finally`. Zooming with `viewExtents`
-instead is what produced the blank frames.
-
-**`BoundingBox3D.combine()` returns a bool and mutates in place.** It does not
-return a combined box. Accumulate min/max by hand.
-
-**Fusion suffixes duplicate timeline names.** Naming a sketch and its feature
-the same thing gets you `Tie slots` and `Tie slots (1)`, and which one is
-suffixed depends on creation order. Matching timeline items by exact name once
-deleted only the sketch and left an orphaned cut still removing geometry: the
-body came out 533 mm3 light and the save looked fine. Match by type and name
-prefix — and in this repo, don't create the collision at all.
-`build_shared_fan_plate.py` prefixes every sketch `Sketch: `, so no timeline
-name equals another or is even a prefix of another.
-
-**Verify a rebuild against the mesh, not against the save.**
-`python scripts/build_shared_fan_plate_mesh.py --compare <exported.stl>`
-booleans a Fusion export against the model both scripts are built from and
-reports what differs, by location and volume. Use it after every Fusion rebuild
-of the plate. Note it does *not* compare total volume: tessellation disagreement
-between Fusion and trimesh is worth tens of mm3 on this part's curved faces, and
-a percentage tolerance loose enough to survive that is loose enough to hide a
-lost feature. It reports connected lumps over 5 mm3 instead, which distinguishes
-a missing pocket from rounding.
-
-**The canvas background is a dark gradient and the API cannot change it.**
-`graphicsPreferences` has no background property. Post-process instead:
-estimate the background per row from the outermost columns so the estimate
-follows the gradient, then replace only pixels that are both near that estimate
-*and* connected to the image border. That last condition is what stops it
-eating dark parts of the model. `whiten_renders.py` does this.
-
-**Name-based colour classification bites.** "duct panel" matched a `panel` rule
-and rendered as smoked acrylic; "fan plate" matched a `fan` rule and came out
-Noctua brown. This fork hit it again from the other direction: `Shared duct
-fan` contains "duct", so a duct-first rule painted the Noctua as a printed
-part. Order specific before general, and **assert the group counts after
-classifying** — `audit_appearances()` in `build_rack_mockup.py` and
-`audit_groups()` in `build_web_assets.py`. A miscoloured body is not a visible
-failure; the render still looks like a render.
-
-**glTF `baseColorFactor` is linear.** Convert sRGB to linear or every colour
-washes out. Fusion exports STLs Z-up and glTF wants Y-up, so
-`build_web_assets.py` rotates them. Note that the *local* renderer does not:
-`render_shared_duct.py` builds in the mockup's frame, where y is already the
-rack's vertical axis, so its GLB needs no rotation. Check the bounds rather
-than assuming either way.
-
-**A script cannot run while a modal dialog is open** — `Cannot perform 'script'
-while a command dialog is open`. Handle it rather than retrying blindly.
+**`whiten_renders.py`** is this repo's implementation of the background
+replacement the skill describes.
 
 ## Generated assets
 

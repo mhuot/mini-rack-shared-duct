@@ -266,7 +266,7 @@ The ears come out of Fusion 360 and have to: they are full of tangency and relie
 - [`check_rear_assembly.py`](scripts/check_rear_assembly.py) — interference, seal, ear-seam and free-area checks.
 - [`build_print_plate.py`](scripts/build_print_plate.py) — the 3MF print plates.
 - [`render_shared_duct.py`](scripts/render_shared_duct.py) — the renders and the GLB on this page, drawn from the same meshes the checks run against. A z-buffer rasteriser in about a hundred lines; no GL context, no display, nothing beyond numpy.
-- [`check_render.py`](scripts/check_render.py) — asserts that the rack in the renders is the rack in the design. See [Checking the renders](#checking-the-renders).
+- [`check_render.py`](scripts/check_render.py) — asserts that the rack in the renders is the rack in the design, and that the rasteriser resolves depth. See [Checking the renders](#checking-the-renders).
 - [`build_depth_diagram.py`](scripts/build_depth_diagram.py), [`build_wiring_diagram.py`](scripts/build_wiring_diagram.py) — the two diagrams.
 - [`check_terminology.py`](scripts/check_terminology.py) — every part has one name; this fails if a retired one creeps back in.
 
